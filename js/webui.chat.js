@@ -57,7 +57,7 @@ if (!window.webui_inits) {
 window.webui_inits.push(function webui_chat_init() { chat_init(); });
 
 function chatbox_clear() {
-   $('#chat-box').clear();
+   $('#chat-box').empty();
 }
 
 function chat_init() {
