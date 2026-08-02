@@ -1,1 +1,32 @@
-.
+=========
+= WebUI =
+=========
+* Sometimes logging in doesnt work when page has sat at login screen a very long time or server restarted since loaded. Why?
+  - I suspect we're opening the websocket way too early...
+* Sync protocol with native client additions
+* mute the join/parts when reconecting
+* Send user-info when they join instead of every time CUL is updated
+  - This will save a fair bit of data transfer over the length of a session
+    - probably a few mbytes
+* Send a bundle hash for the app when ws connects, so client can reload assets as needed
+* move stuff to local/sessionStorage so we can reload the script without disconnecting!
+  - update components in cache when server says a newer version available
+* Change the window title to show unread messages
+- Pasting images
+  - Expire incomplete images from memory after a few minutes
+  - Make sure we're cleaning up image data when no longer used
+  - FIX MINIMIZE BUTTON!
+* Fix tab highlights
+* Implement Web Serial firmare uploads
+        https://developer.chrome.com/articles/serial/
+        https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API
+        - js/zmodemjs for zmodem upload
+* Add more error messages when privileges denied, etc. (server side)
+* display a Reconnecting symbol on top in the corner
+* Implement tabbed/windowed modes with movable/resizable windows (overlapping)
+
+[www.chat]
+* Support saving the chat log
+- Should we allow selecting text for copy/paste?
+  - maybe cfg tab option?
+- Message replay
