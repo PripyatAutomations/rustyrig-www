@@ -181,7 +181,7 @@ function webui_handle_ws_msg(event) {
 
             ChatBox.Append(`<div class="chat-status error">${msg_ts}&nbsp;!!ALERT!!${alert_from}&nbsp;${alert_msg}</div>`);
          } else if (msgObj.cat) {
- //           console.log("CAT msg:", msgObj);
+            console.log("CAT msg:", msgObj);
             webui_parse_cat_msg(msgObj);
          } else if (msgObj.ping) {			// Handle PING messages
             var ts = msgObj.ping.ts;
@@ -189,7 +189,7 @@ function webui_handle_ws_msg(event) {
                // Invalid timestamp in the ping, ignore it
                return false;
             }
-//            console.log("Got PING from server with ts", ts, "replying!");
+            console.log("Got PING from server with ts", ts, "replying!");
             var newMsg = { pong: { ts: String(ts) } };
             socket.send(JSON.stringify(newMsg));
          } else if (msgObj.talk) {		// Handle Chat messages

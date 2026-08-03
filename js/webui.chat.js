@@ -500,13 +500,14 @@ const UserCache = {
    users: {},
 
    add(user) {
+      // I dont remember why this is done as such; ideally we should duplicate user object into this.users[user.name] directly
       this.users[user.name] = {
          ...(user.hasOwnProperty('ptt')   && { ptt:   user.ptt }),
          ...(user.hasOwnProperty('muted') && { muted: user.muted }),
          ...(user.hasOwnProperty('privs') && { privs: user.privs }),
          ...(user.hasOwnProperty('clones') && { clones: user.clones })
       };
-//      console.log("UC.add: name:", user.name, "clones:", user.clones);
+      console.log("UC.add: name:", user.name, "clones:", user.clones);
       cul_render();
    },
 
@@ -514,7 +515,7 @@ const UserCache = {
       const entry = this.users[name];
       if (!entry) return;
 
-//      console.log("UC.remove: name:", name, "clones:", entry.clones);
+      console.log("UC.remove: name:", name, "clones:", entry.clones);
 
       if (entry.clones <= 1) {
          delete this.users[name];
