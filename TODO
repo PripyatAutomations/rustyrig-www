@@ -1,6 +1,8 @@
 =========
 = WebUI =
 =========
+! Confirm if the freq entry widget keeps a sane value after a wrap-around
+  occurs
 ! When disconnected, show a OFFLINE notice on the login screen
   - if ws reconnects, have the handler hide this div
 * Sometimes logging in doesnt work when page has sat at login screen a very long time or server restarted since loaded. Why?
