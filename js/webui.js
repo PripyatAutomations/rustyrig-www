@@ -150,7 +150,7 @@ function webui_handle_ws_msg(event) {
    if (event.data instanceof ArrayBuffer) {
       handle_binary_frame(event);
    } else if (typeof event.data === "string") {
-  // console.log("evt:", event);
+ //     console.log("evt:", event);
       var msgData = event.data;
  //     console.log("Got string:", msgData);
       ws_last_heard = Date.now();
