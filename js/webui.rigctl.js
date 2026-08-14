@@ -3,7 +3,8 @@
  */
 var active_vfo = 'A';		// Active VFO
 var ptt_active = false;		// managed by webui.js for now when cat ptt comes
-const FREQ_DIGITS = 10;		// How many digits of frequency to display - 10 digits = single ghz
+// How do we fill this from the radio.config.json?? that would solve a lot of problems
+const FREQ_DIGITS = 8;		// How many digits of frequency to display - 10 digits = single ghz
 var rig_modes = [ 'LSB', 'USB', 'AM', 'FM', 'D-L', 'D-U' ];
 
 if (!window.webui_inits) window.webui_inits = [];

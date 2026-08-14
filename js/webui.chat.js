@@ -408,7 +408,7 @@ function parse_chat_cmd(e) {
                   ChatBox.Append('<br/><div><span class="notice">*** ADMIN HELP *** These commands are only available to admins/owners.</span></div>');
                   ChatBox.Append('<div><span class="notice">&nbsp;/ban&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Ban a user from logging in: &lt;user&gt; &lt;reason&gt;</span></div>');
                   ChatBox.Append('<div><span class="notice">&nbsp;/die&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Shut down the server &lt;reason&gt;</span></div>');
-//                  ChatBox.Append('<div><span class="notice">/edit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Edit a user: &lt;user&gt;</span></div>');
+                  ChatBox.Append('<div><span class="notice">/edit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Edit a user: &lt;user&gt;</span></div>');
                   ChatBox.Append('<div><span class="notice">&nbsp;/kick&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Kick a user: &lt;user&gt; &lt;reason&gt;</span></div>');
                   ChatBox.Append('<div><span class="notice">&nbsp;/mute&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Mute a user, disables their TX and chat: &lt;user&gt; &lt;reason&gt;</span></div>');
                   ChatBox.Append('<div><span class="notice">&nbsp;/restart&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Restart the server &lt;reason&gt;</span></div>');
@@ -463,7 +463,7 @@ function parse_chat_cmd(e) {
                };
                break;
             default:
-               ChatBox.Append('<div><span class="error">Invalid command:' + command + '</span></div>');
+               ChatBox.Append('<div><span class="error">Invalid command: ' + command + '</span></div>');
                break;
          }
          if (typeof args_obj === 'object' && args_obj !== null) {
@@ -703,9 +703,9 @@ function webui_parse_chat_msg(msgObj) {
          console.log("got join for undefined user, ignoring");
       }
    } else if (cmd === 'kick') {
-//      console.log("kick msg:", msgObj);
       // Play leave (door close) sound if the bell button is checked
       if ($('#bell-btn').data('checked')) {
+         // only play the sound for other usernames
          if (!(user === auth_user)) {
             leave_ding.currentTime = 0;  // Reset audio to start from the beginning
             leave_ding.play();
