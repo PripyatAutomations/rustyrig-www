@@ -166,7 +166,7 @@ function webui_handle_ws_msg(event) {
             ChatBox.Append(`<div class="chat-status notice">ERROR: ${msg}</div>`);
             console.log("NOTICE:", msg);
          } else if (msgObj.hello) {
-            ChatBox.Append(`<div class="chat-status notice">Server version: ${msgObj.hello}</div>`);
+            ChatBox.Append(`<div class="chat-status notice">Server version: ${msgObj.hello.swver} on ${msgObj.hello.hwver}</div>`);
          } else if (msgObj.alert) {
             var alert_from = msgObj.alert.from.toUpperCase();
             var alert_ts = msgObj.alert.ts;
