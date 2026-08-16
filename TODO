@@ -1,4 +1,5 @@
 ! Delay websocket connection to the server until the login button is clicked
+  - This needs fixed ASAP
 * display a Reconnecting symbol on top in the corner
 ! When disconnected, show a OFFLINE notice on the login screen
   - if ws reconnects, have the handler hide this div
