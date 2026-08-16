@@ -105,7 +105,7 @@ function chat_init() {
 
 function cul_offline() {
    // Clear the user-info cache (populated from JOIN messages)
-   user_cache = {};
+   UserCache.clear();
 
    $('.cul-list').empty();
    $('.cul-list').append('<span class="error">OFFLINE</span>');
@@ -537,7 +537,7 @@ const UserCache = {
       if ('ptt'   in user) existing.ptt   = user.ptt;
       if ('privs' in user) existing.privs = user.privs;
       if ('muted' in user) existing.muted = user.muted;
-      if ('clones' in user) existing.clines = user.clones;
+      if ('clones' in user) existing.clones = user.clones;
       cul_render();
    },
 
@@ -732,15 +732,12 @@ function webui_parse_chat_msg(msgObj) {
             reason = 'Client exited';
          }
 
-         // skip this for our clones
-         if (user.name !== auth_user) {
-            UserCache.remove(user);
-            // Play leave (door close) sound if the bell button is checked
-            if ($('#bell-btn').data('checked')) {
-               if (!(user === auth_user)) {
-                  leave_ding.currentTime = 0;  // Reset audio to start from the beginning
-                  leave_ding.play();
-               }
+         UserCache.remove(user);
+         // Play leave (door close) sound if the bell button is checked
+         if ($('#bell-btn').data('checked')) {
+            if (user !== auth_user) {
+               leave_ding.currentTime = 0;  // Reset audio to start from the beginning
+               leave_ding.play();
             }
          }
 
