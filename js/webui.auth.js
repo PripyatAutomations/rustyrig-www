@@ -67,6 +67,9 @@ function try_login() {
    console.log("Logging in as " + login_user + "...");
 
    var msgObj = {
+      "msg": {
+         "type": "auth"
+      },
       "auth": {
          "cmd": "login",
          "user": login_user
