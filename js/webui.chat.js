@@ -296,6 +296,9 @@ function show_user_menu(username) {
 // Function to send commands over WebSocket
 function chat_send_command(cmd, args) {
    const msgObj = {
+      "msg": {
+         "type": "talk"
+      },
       "talk": {
          "cmd": cmd,
          "token": auth_token,
@@ -477,6 +480,9 @@ function parse_chat_cmd(e) {
       // Is this a user message that we should display?
       if (chat_msg) {
          var msgObj = {
+            "msg": {
+               "type": "talk"
+            },
             "talk": {
                "cmd": "msg",
                "ts": Math.floor(Date.now() / 1000),

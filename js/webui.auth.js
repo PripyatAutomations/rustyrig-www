@@ -106,6 +106,9 @@ async function authenticate(login_user, login_pass, auth_token, nonce) {
    var hashed_pass = await sha1_hex(combinedString);
 
    var msgObj = {
+      "msg": {
+         "type": "auth"
+      },
       "auth": {
          "cmd": "pass",
          "user": login_user,
@@ -119,6 +122,9 @@ async function authenticate(login_user, login_pass, auth_token, nonce) {
 function logout() {
    if (typeof socket !== 'undefined' && socket.readyState === WebSocket.OPEN) {
       var msgObj = {
+         "msg": {
+            "type": "auth"
+         },
          "auth": {
             "cmd": "logout",
             "user": auth_user,
