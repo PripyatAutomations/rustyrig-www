@@ -139,6 +139,9 @@ function playFloat32Samples(float32Data, sampleRate) {
 
 function ws_send_capab_msg() {
    var capab_msg = {
+      "msg": {
+         "type": "media"
+      },
       "media": {
          "cmd": "capab",
          "payload": "pc16 mu16 mu08"
@@ -149,6 +152,9 @@ function ws_send_capab_msg() {
 
 function ws_send_rx_codec(codec) {
    var codec_msg = {
+      "msg": {
+         "type": "media"
+      },
       "media": {
          "cmd": "codec",
          "codec": codec || "pc16",
@@ -160,6 +166,9 @@ function ws_send_rx_codec(codec) {
 
 function ws_send_tx_codec(codec) {
    var codec_msg = {
+      "msg": {
+         "type": "media"
+      },
       "media": {
          "cmd": "codec",
          "codec": codec || "pc16",

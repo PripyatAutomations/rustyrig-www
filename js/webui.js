@@ -190,7 +190,14 @@ function webui_handle_ws_msg(event) {
                return false;
             }
             console.log("Got PING from server with ts", ts, "replying!");
-            var newMsg = { pong: { ts: String(ts) } };
+            var newMsg = {
+               pong: {
+                  ts: ts
+               },
+               msg: {
+                  type: "pong"
+               }
+            };
             socket.send(JSON.stringify(newMsg));
          } else if (msgObj.talk) {		// Handle Chat messages
             webui_parse_chat_msg(msgObj);

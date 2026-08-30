@@ -120,3 +120,8 @@ a.chat-link {
 .chat-status {
    color: LightSteelBlue;
 }
+
+#chat-rig-status {
+   background: #1a1a1a;
+   color: peach;
+}

@@ -288,3 +288,8 @@ span.menu-tab:hover {
 #syslog-msg {
    background: DarkSlateGrey;
 }
+
+#chat-rig-status {
+   background: red;
+   color: white;
+}

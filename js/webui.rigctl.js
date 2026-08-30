@@ -56,6 +56,9 @@ function vfo_edit_init() {
       var val = $(this).val();
       console.log("MODE changed to", val);;
       var msg = { 
+         msg: {
+            type: "cat"
+         },
          cat: {
             cmd: "mode",
             vfo: active_vfo,
@@ -90,6 +93,9 @@ function ptt_btn_init() {
       }
 
       var msg = { 
+         msg: {
+            type: "cat"
+         },
          cat: {
             cmd: "ptt",
             vfo: "A",

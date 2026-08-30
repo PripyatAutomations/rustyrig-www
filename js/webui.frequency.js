@@ -103,6 +103,9 @@ function freq_input_init() {
    freq_init_digits($input, function(val) {
       // Blorp out the change as a command
       var msg = { 
+         msg: {
+            type: "cat"
+         },
          cat: {
             cmd: "freq",
             vfo: active_vfo,
