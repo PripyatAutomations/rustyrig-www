@@ -55,7 +55,7 @@ function vfo_edit_init() {
       // Send the change to the server
       var val = $(this).val();
       console.log("MODE changed to", val);;
-      var msg = { 
+      var msg = {
          msg: {
             type: "cat"
          },
@@ -92,7 +92,7 @@ function ptt_btn_init() {
          ptt_active = false;
       }
 
-      var msg = { 
+      var msg = {
          msg: {
             type: "cat"
          },
@@ -108,7 +108,7 @@ function ptt_btn_init() {
 }
 
 function webui_parse_cat_msg(msgObj) {
-   var cat_ts = msgObj.ts;
+   var cat_ts = (msgObj.msg && msgObj.msg.ts) ? msgObj.msg.ts : msgObj.ts;
    var msg_ts = msg_timestamp(cat_ts);
    var cmd = msgObj.cat.cmd;
    var user = msgObj.cat.user;
@@ -119,7 +119,7 @@ function webui_parse_cat_msg(msgObj) {
       if (cmd === 'ptt') {
          var vfo = msgObj.cat.vfo;
          var ptt = msgObj.cat.ptt;
-         var ptt_l = ptt.toLowerCase();
+         var ptt_l = (typeof ptt === 'string') ? ptt.toLowerCase() : ptt;
 
          if (ptt_l === "true" || ptt_l === true) {
             $('.rig-ptt').addClass("red-btn");
@@ -130,7 +130,29 @@ function webui_parse_cat_msg(msgObj) {
          }
          UserCache.update({ name: user, ptt: ptt_active });
       }
-    } else {  // Nope, it's a state message
+   } else if (cmd === 'freq') {  // broadcast of a user freq change
+      var vfo = msgObj.cat.vfo || 'A';
+      var freq = msgObj.cat.freq;
+      if (typeof freq !== 'undefined' && freq > 0) {
+         if (vfo === 'B') {
+            $('span#vfo-b-freq').html(format_freq(freq) + '&nbsp;Hz');
+         } else {
+            $('span#vfo-a-freq').html(format_freq(freq) + '&nbsp;Hz');
+         }
+         freq_set_digits(freq, $('#rig-freq'));
+         $('.vfo-changed').removeClass('vfo-changed');
+      }
+   } else if (cmd === 'mode') {  // broadcast of a user mode change
+      var vfo = msgObj.cat.vfo || 'A';
+      var mode = msgObj.cat.mode;
+      if (typeof mode !== 'undefined') {
+         if (vfo === 'B') {
+            $('span#vfo-b-mode').html(mode);
+         } else {
+            $('span#vfo-a-mode').html(mode);
+         }
+      }
+   } else {  // Nope, it's a state message
       var state = msgObj.cat.state;
 //      console.log("state:", state);
 
