@@ -119,7 +119,7 @@ function handle_file_chunk(msgObj) {
 
       const isSelf = sender === auth_user;
       const prefix = isSelf ? '<span class="chat-my-msg-prefix">===>' : `<span class="chat-msg-prefix">&lt;${sender}&gt;`;
-      const msg_ts = msg_timestamp(msgObj.talk.ts);
+      const msg_ts = msg_timestamp(msgObj.msg.ts);
 
       const chatBoxHeight = $('#chat-box').innerHeight();
       // Bound the image to 80% of the screen height

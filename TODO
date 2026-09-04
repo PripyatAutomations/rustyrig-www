@@ -1,3 +1,4 @@
+! Fix history (up/down buttons in chat input!
 ! Delay websocket connection to the server until the login button is clicked
   - This needs fixed ASAP
 * display a Reconnecting symbol on top in the corner
