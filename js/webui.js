@@ -58,6 +58,13 @@ function ws_connect() {
    reconnecting = false;
    show_connecting(true);
 
+   // Was the websocket connection kicked? If so, don't even open a socket
+   if (ws_kicked == true) {
+      console.log("Preventing auto-reconnect - we were kicked");
+      show_connecting(false);
+      return;
+   }
+
    // destroy old socket, if present
    if (typeof socket !== 'undefined') {
       socket.close();
@@ -66,11 +73,6 @@ function ws_connect() {
 
    socket = new WebSocket(make_ws_url());
    socket.binaryType = "arraybuffer";
-   // Was the websocket connection kicked? If so, don't reconnect
-   if (ws_kicked == true) {
-      console.log("Preventing auto-reconnect - we were kicked");
-      return;
-   }
 
    socket.onmessage = function(event) {
        webui_handle_ws_msg(event);
@@ -236,17 +238,27 @@ function webui_handle_ws_msg(event) {
    return socket;
 }
 
+/* PARITY: rrclient/src/ui/page.chat.c */
 function stop_reconnecting() {
+   // Set flags so any in-flight onclose/onerror won't spawn another reconnect
    ws_kicked = true;
+   reconnecting = false;
    if (reconnect_timer) {
       clearTimeout(reconnect_timer);
+      reconnect_timer = null;
    }
-
-   if (reconnecting) {
-      reconnecting = false;
+   if (typeof socket !== 'undefined' && socket) {
+      socket.onclose = null;
+      socket.onerror = null;
+      socket.onmessage = null;
+      try {
+         socket.close();
+      } catch (e) {
+         // socket may already be closed
+      }
+      socket = null;
    }
-   show_connecting(false);
-   reconnect_tries = 0;
+   console.log("Reconnection stopped, socket torn down");
 }
 
 function handle_reconnect() {

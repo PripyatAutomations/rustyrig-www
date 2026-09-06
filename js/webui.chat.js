@@ -382,6 +382,7 @@ function parse_chat_cmd(e) {
             case 'logout':
             case 'quit':
                logout();
+               break;
             case 'reloadcss':
                console.log("Reloading CSS on user command");
                reload_css();

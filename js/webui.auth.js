@@ -53,8 +53,9 @@ window.webui_inits.push(function webui_auth_init() {
    $('#win-login input#user').focus();
 
    $(window).on('beforeunload', function() {
-       logout();
-   }); 
+       // Prevent auto-reconnect from firing a ghost connection while the page is going away
+       stop_reconnecting();
+   });
 });
 
 ////////////////////////////
@@ -120,19 +121,24 @@ async function authenticate(login_user, login_pass, auth_token, nonce) {
 }
 
 function logout() {
+   var msgObj = {
+      "msg": {
+         "type": "auth"
+      },
+      "auth": {
+         "cmd": "logout",
+         "user": auth_user,
+         "token": auth_token
+      }
+   };
+   // Flag that we're logging out BEFORE sending, so the server's close
+   // can't trip the auto-reconnect in socket.onclose/onerror
+   ws_kicked = true;
+
    if (typeof socket !== 'undefined' && socket.readyState === WebSocket.OPEN) {
-      var msgObj = {
-         "msg": {
-            "type": "auth"
-         },
-         "auth": {
-            "cmd": "logout",
-            "user": auth_user,
-            "token": auth_token
-         }
-      };
       socket.send(JSON.stringify(msgObj));
    }
+   stop_reconnecting();
 
    if (typeof chatbox_clear === "function") {
       chatbox_clear();
