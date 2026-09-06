@@ -12,6 +12,12 @@ function msg_create_links(message) {
    );
 }
 
+// Server sends booleans sometimes as real JSON bools (dict_add_bool) and
+// sometimes as "true"/"false" strings (dict_add); handle both
+function parse_bool_field(val) {
+   return val === true || val === 'true';
+}
+
 class WebUiChat {
    constructor(output, input) {
       if (typeof output === 'undefined' || output === null) {
@@ -115,7 +121,8 @@ function cul_offline() {
 function parse_userinfo_reply(message) {
 //    console.log("parse_userinfo_reply:", message);
     if (typeof message !== 'undefined') {
-       UserCache.update({ name: message.talk.user, privs: message.talk.privs, muted: message.talk.muted, ptt: message.talk.ptt, clones: message.talk.clones });
+       // Server sends the PTT state as talk.tx (see srv.chat.c: ws_send_userinfo)
+       UserCache.update({ name: message.talk.user, privs: message.talk.privs, muted: parse_bool_field(message.talk.muted), ptt: parse_bool_field(message.talk.tx !== undefined ? message.talk.tx : message.talk.ptt), clones: message.talk.clones });
     }
 
     return false;
@@ -147,11 +154,11 @@ function cul_render() {
        }
        if (user.ptt) {
           tx_badges += '<span class="badge tx-badge">🎙️</span>';
-       } else if (user.muted === "true") {
+       } else if (parse_bool_field(user.muted)) {
            tx_badges += '<span class="badge">🙊</span>';
-       }
+        }
 
-       if (privs.has('owner')) {
+        if (privs.has('owner')) {
            badges += '<span class="badge owner-badge">👑&nbsp;</span>';
        } else if (privs.has('admin')) {
            badges += '<span class="badge admin-badge">⭐&nbsp;</span>';
@@ -269,7 +276,7 @@ function show_user_menu(username) {
        });
 
        // do we show mute or unmute button?
-       if (user.muted === "true") {
+       if (parse_bool_field(user.muted)) {
           $('.mute-user').hide('fast');
           $('.unmute-user').show('fast');
        } else {
@@ -295,16 +302,28 @@ function show_user_menu(username) {
 
 // Function to send commands over WebSocket
 function chat_send_command(cmd, args) {
-   const msgObj = {
+   var msgObj = {
       "msg": {
          "type": "talk"
       },
       "talk": {
          "cmd": cmd,
-         "token": auth_token,
-         "args": args
+         "token": auth_token
       }
    };
+
+   // args: target goes into talk.target (server reads talk.target),
+   // everything else into talk.args.<key> (e.g. talk.args.reason)
+   if (typeof args === 'object' && args !== null) {
+      if (typeof args.target !== 'undefined') {
+         msgObj.talk.target = args.target;
+      }
+      var rest = { ...args };
+      delete rest.target;
+      if (Object.keys(rest).length > 0) {
+         msgObj.talk.args = rest;
+      }
+   }
 
    var msgObj_j = JSON.stringify(msgObj);
    socket.send(msgObj_j);
@@ -643,14 +662,15 @@ function webui_parse_chat_msg(msgObj) {
 
    // keep msg up top as it's the most frequently encountered command
    // XXX: Maybe we should keep a counter of received commands so we can optimize this a bit later??
+   var msg_ts = msg_timestamp(msgObj.msg.ts);
+
    if (cmd === 'replay-start') {
-      ChatBox.Append('<div>' + msg_ts + '*** Chat replay Start ***</div>"');
-   } else if (cmd === 'replay-complete') {
-      ChatBox.Append('<div>' + msg_ts + '*** Chat replay End ***</div>"');
+      ChatBox.Append('<div>' + msg_ts + ' *** Chat replay Start ***</div>');
+   } else if (cmd === 'replay-complete' || cmd === 'replay-completed') {
+      ChatBox.Append('<div>' + msg_ts + ' *** Chat replay End ***</div>');
    } else if (cmd === 'msg' && message) {
       var sender = msgObj.talk.from;
       var msg_type = msgObj.talk.msg_type;
-      var msg_ts = msg_timestamp(msgObj.msg.ts);
 
       if (msg_type === "file_chunk") {
          handle_file_chunk(msgObj);
@@ -674,13 +694,15 @@ function webui_parse_chat_msg(msgObj) {
             set_highlight("chat");
             // XXX: Update the window title to show a pending message
          }
-      } else if (msg_type === "replay-action" || msg_type == "replay-pub") {
+      } else if (msg_type === "replay-action" || msg_type == "replay-pub" || msg_type == 'replay-privmsg' || msg_type == 'replay-priv') {
          message = msg_create_links(message);
 
          if (msg_type === 'replay-action') {
-            ChatBox.Append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">&nbsp;(replay)' + sender + '&nbsp;</span>***&nbsp;<span class="chat-msg">' + message + '</span></div>');
+            ChatBox.Append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">&nbsp;' + sender + '&nbsp;</span>***&nbsp;<span class="chat-msg">' + message + '</span></div>');
          } else if (msg_type === 'replay-pub') {
-            ChatBox.Append('<div>' + msg_ts + ' <span class="chat-msg-prefix">(replay)&lt;' + sender + '&gt;&nbsp;</span><span class="chat-msg">' + message + '</span></div>');
+            ChatBox.Append('<div>' + msg_ts + ' <span class="chat-msg-prefix">&lt;' + sender + '&gt;&nbsp;</span><span class="chat-msg">' + message + '</span></div>');
+         } else {  // replay-privmsg / replay-priv
+            ChatBox.Append('<div>' + msg_ts + ' <span class="chat-msg-prefix">*' + sender + '*&nbsp;</span><span class="chat-msg">' + message + '</span></div>');
          }
          set_highlight("chat");
          // XXX: Update the window title to show a pending message
@@ -698,10 +720,7 @@ function webui_parse_chat_msg(msgObj) {
             ptt_state = false;
          }
 
-         var muted_state = msgObj.talk.muted;
-         if (typeof muted_state === 'undefined') {
-            muted_state = false;
-         }
+         var muted_state = parse_bool_field(msgObj.talk.muted);
 
          var clones = msgObj.talk.clones;
          if (typeof clones !== 'undefined') {
@@ -722,17 +741,18 @@ function webui_parse_chat_msg(msgObj) {
          console.log("got join for undefined user, ignoring");
       }
    } else if (cmd === 'kick') {
+      var user = msgObj.talk.user;
       // Play leave (door close) sound if the bell button is checked
-      if ($('#bell-btn').data('checked')) {
-         // only play the sound for other usernames
-         if (!(user === auth_user)) {
-            leave_ding.currentTime = 0;  // Reset audio to start from the beginning
-            leave_ding.play();
-         }
+      if ($('#bell-btn').data('checked') && user && user !== auth_user) {
+         leave_ding.currentTime = 0;  // Reset audio to start from the beginning
+         leave_ding.play();
       }
-      UserCache.remove(user);
-      console.log("Kick command received for user:", user, " reason:", msgObj.talk.data.reason);
+      if (user) {
+         UserCache.remove(user);
+      }
+      console.log("Kick command received for user:", user, " reason:", msgObj.talk.data);
    } else if (cmd === 'mute') {
+      var user = msgObj.talk.user;
       // Shows a muted icon
       console.log("Mute command received for user:", user);
       UserCache.update({ name: user, muted: true });
@@ -767,6 +787,7 @@ function webui_parse_chat_msg(msgObj) {
    } else if (cmd === "userinfo") {
       parse_userinfo_reply(msgObj);
    } else if (cmd === "unmute") {
+      var user = msgObj.talk.user;
       UserCache.update({ name: user, muted: false });
 
       // this is for us, so re-enable the PTT button, if appropriate
@@ -774,34 +795,35 @@ function webui_parse_chat_msg(msgObj) {
          $('button.rig-ptt').removeAttr("disabled");
       }
    } else if (cmd === 'whois') {
-      const clones = msgObj.talk.data;
+      // Flat whois reply (see srv.chat.c): talk.username/email/privs/muted/clones
+      // talk.connected/last_heard (unix ts) and talk.ua
+      // Rendered IRC-style in the chat scrollback
+      const username = msgObj.talk.username;
 
-      if (!clones || clones.length === 0) {
+      if (!username) {
          return;
       }
-      form_disable(true);
 
-      const info = clones[0]; // shared info from the first entry
+      const who_ts = msg_timestamp(msgObj.msg.ts);
+      const who_line = (text, cls) => {
+         ChatBox.Append(`<div>${who_ts}&nbsp;<span class="chat-msg-prefix">***&nbsp;</span><span class="${cls || 'chat-msg'}">${text}</span></div>`);
+      };
 
-      let html = `<strong>User:</strong>&nbsp;${info.username}<br>`;
-      html += `<strong>Email:</strong>&nbsp;${info.email}<br>`;
-      html += `<strong>Privileges:</strong>&nbsp;${info.privs || 'None'}<br>`;
-      if (typeof info.muted !== 'undefined' && info.muted === "true") {
-         html += `<strong class="red">This user is currently muted.</strong>&nbsp;Rigctl is temporarily suspended.<br>`;
+      who_line(`Whois for <b>${username}</b>`, 'notice');
+      who_line(`Email:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${msgObj.talk.email || 'none'}`);
+      who_line(`Privileges:&nbsp;&nbsp;${msgObj.talk.privs || 'None'}`);
+      if (parse_bool_field(msgObj.talk.muted)) {
+         who_line(`This user is currently MUTEd. Rigctl is temporarily suspended.`, 'error');
       }
-      html += '<hr width="75%"/>';
-
-      html += `<strong>Active Sessions: ${clones.length}</strong><br>`;
-      clones.forEach((session) => {
-         let clone_num = session.clone + 1;
-            html += `&nbsp;&nbsp;<em>Clone #${clone_num}</em><br>`;
-         html += `&nbsp;&nbsp;&nbsp;&nbsp;<strong>Connected:</strong> ${new Date(session.connected * 1000).toLocaleString()}`;
-         html += `&nbsp;&nbsp;<strong>Last Heard:</strong> ${new Date(session.last_heard * 1000).toLocaleString()}<br>`;
-         html += `&nbsp;&nbsp;&nbsp;&nbsp;<strong>User-Agent:</strong> <code>${session.ua}</code><br><br>`;
-      });
-
-      html += "<hr/><br/>Click window or hit escape to close";
-      $('#chat-whois').html(html).show('slow');
+      who_line(`Sessions:&nbsp;&nbsp;&nbsp;&nbsp;${msgObj.talk.clones || 0}`);
+      if (msgObj.talk.connected) {
+         who_line(`Connected:&nbsp;&nbsp;&nbsp;${new Date(msgObj.talk.connected * 1000).toLocaleString()}`);
+      }
+      if (msgObj.talk.last_heard) {
+         who_line(`Last heard:&nbsp;&nbsp;${new Date(msgObj.talk.last_heard * 1000).toLocaleString()}`);
+      }
+      who_line(`Client:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${msgObj.talk.ua || 'unknown'}`);
+      who_line(`End of WHOIS ${username}`, 'notice');
    } else {
       console.log("Unknown talk command:", cmd, "msg:", msgData);
    }

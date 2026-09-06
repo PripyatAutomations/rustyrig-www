@@ -41,7 +41,10 @@ function send_ping(sock) {
       const now = Math.floor(Date.now() / 1000);  // Unix time in seconds
       ws_keepalives_sent++;
       ws_last_pinged = now;
-      sock.send("ping " + now);
+      // Server expects a JSON dict (ws_txtframe_process): msg.type ping with msg.ts
+      sock.send(JSON.stringify({
+         msg: { type: 'ping', ts: now }
+      }));
    }
 }
 
@@ -162,13 +165,13 @@ function webui_handle_ws_msg(event) {
             syslog_append(msgObj);
          } else if (msgObj.error) {
             console.log("ERR:", msgObj);
-            var msg = msgObj.error;
+            var msg = msgObj.error.msg || msgObj.error;
             ChatBox.Append(`<div class="chat-status notice">ERROR: ${msg}</div>`);
             console.log("NOTICE:", msg);
          } else if (msgObj.hello) {
             ChatBox.Append(`<div class="chat-status notice">Server version: ${msgObj.hello.swver} on ${msgObj.hello.hwver}</div>`);
          } else if (msgObj.alert) {
-            var alert_from = msgObj.alert.from.toUpperCase();
+            var alert_from = (msgObj.alert.from || '***SERVER***').toUpperCase();
             var alert_ts = msgObj.alert.ts;
             var alert_msg = msgObj.alert.msg;
             var msg_ts = msg_timestamp(alert_ts);
@@ -183,19 +186,24 @@ function webui_handle_ws_msg(event) {
          } else if (msgObj.cat) {
             console.log("CAT msg:", msgObj);
             webui_parse_cat_msg(msgObj);
-         } else if (msgObj.ping) {			// Handle PING messages
-            var ts = msgObj.ping.ts;
+         } else if (msgObj.notice) {   // notices from ws_send_notice()
+            var notice_ts = msg_timestamp(msgObj.msg.ts);
+            ChatBox.Append(`<div class="chat-status notice">${notice_ts}&nbsp;${msgObj.notice.msg}</div>`);
+         } else if (msgObj.ping) {		// Handle PING messages
+            var ts = msgObj.msg ? msgObj.msg.ts : undefined;      // server's wall-clock ts, must be echoed back in msg.ts
+            var mono_ts = msgObj.ping.ts;                        // monotonic us ts for RTT measurement
             if (typeof ts === 'undefined' || ts <= 0) {
                // Invalid timestamp in the ping, ignore it
                return false;
             }
             console.log("Got PING from server with ts", ts, "replying!");
             var newMsg = {
-               pong: {
+               msg: {
+                  type: "pong",
                   ts: ts
                },
-               msg: {
-                  type: "pong"
+               ping: {
+                  ts: mono_ts
                }
             };
             socket.send(JSON.stringify(newMsg));
@@ -312,7 +320,7 @@ window.webui_inits.push(function webui_init() {
    $('span#tab-config').click(function() { wm_switch_tab('cfg'); });
    $('span#tab-syslog').click(function() { wm_switch_tab('syslog'); });
 
-   $('span#tab-dark').click(function() {  
+   $('span#tab-dark').click(function() {
       var dark_mode = localStorage.getItem("dark_mode") !== "false"
       set_dark_mode(!dark_mode);
    });
