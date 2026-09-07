@@ -107,6 +107,22 @@ function ptt_btn_init() {
    });
 }
 
+// Server talk-timeout (TOT) fired: orange button with TIMED OUT text until
+// the next confirmed PTT state arrives. PARITY: rrclient/events.c
+// rrclient_handle_ptt_tot() & rrclient/gtk.ptt-btn.c ptt_button_tot_expired()
+function ptt_tot_expired(msgObj) {
+   var tot = (msgObj["ptt.tot-expired"] && msgObj["ptt.tot-expired"].secs) ? msgObj["ptt.tot-expired"].secs : 300;
+
+   ptt_active = false;
+   $('.rig-ptt').removeClass('red-btn');
+   $('.rig-ptt').addClass('tot-btn');
+   $('.rig-ptt').html('TIMED OUT ' + tot + 's');
+
+   if (typeof ChatBox !== 'undefined') {
+      ChatBox.Append('<div class="chat-status error">PTT Halted: Talk Timeout after ' + tot + ' seconds</div>');
+   }
+}
+
 function webui_parse_cat_msg(msgObj) {
    var cat_ts = (msgObj.msg && msgObj.msg.ts) ? msgObj.msg.ts : msgObj.ts;
    var msg_ts = msg_timestamp(cat_ts);
@@ -122,6 +138,7 @@ function webui_parse_cat_msg(msgObj) {
          var ptt_l = (typeof ptt === 'string') ? ptt.toLowerCase() : ptt;
 
          if (ptt_l === "true" || ptt_l === true) {
+            $('.rig-ptt').removeClass("tot-btn");
             $('.rig-ptt').addClass("red-btn");
             ptt_active = true;
          } else {
@@ -165,6 +182,7 @@ function webui_parse_cat_msg(msgObj) {
          if (ptt === "false") {
             $('button.rig-ptt').removeClass("red-btn");
          } else {
+            $('button.rig-ptt').removeClass("tot-btn");
             $('button.rig-ptt').addClass("red-btn");
          }
       }

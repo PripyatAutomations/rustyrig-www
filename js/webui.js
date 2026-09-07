@@ -188,6 +188,8 @@ function webui_handle_ws_msg(event) {
          } else if (msgObj.cat) {
             console.log("CAT msg:", msgObj);
             webui_parse_cat_msg(msgObj);
+         } else if (msgObj["ptt.tot-expired"]) {   // Server talk-timeout fired
+            ptt_tot_expired(msgObj);
          } else if (msgObj.notice) {   // notices from ws_send_notice()
             var notice_ts = msg_timestamp(msgObj.msg.ts);
             ChatBox.Append(`<div class="chat-status notice">${notice_ts}&nbsp;${msgObj.notice.msg}</div>`);

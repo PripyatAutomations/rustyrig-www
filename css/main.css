@@ -83,6 +83,18 @@ button {
    color: #fff;
 }
 
+// Talk-timeout (TOT) fired on the server: orange TIMED OUT button
+.tot-btn {
+   background-color: #e07000;
+   color: black;
+   font-weight: bold;
+}
+
+.tot-btn:hover {
+   border: 2px solid #ff9020;
+   background-color: #c06000;
+}
+
 .red-btn:hover {
    border: 2px solid #cc0000;
    background-color: #821212;
