@@ -434,6 +434,7 @@ function parse_chat_cmd(e) {
                   ChatBox.Append('<div><span class="notice">/edit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Edit a user: &lt;user&gt;</span></div>');
                   ChatBox.Append('<div><span class="notice">&nbsp;/kick&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Kick a user: &lt;user&gt; &lt;reason&gt;</span></div>');
                   ChatBox.Append('<div><span class="notice">&nbsp;/mute&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Mute a user, disables their TX and chat: &lt;user&gt; &lt;reason&gt;</span></div>');
+                  ChatBox.Append('<div><span class="notice">&nbsp;/rehash&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Reload the server configuration &amp; user database</span></div>');
                   ChatBox.Append('<div><span class="notice">&nbsp;/restart&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Restart the server &lt;reason&gt;</span></div>');
                   ChatBox.Append('<div><span class="notice">&nbsp;/unmute&nbsp;&nbsp;&nbsp;- Unmute a user, enables their TX (if privileged): &lt;user&gt;</span></div>');
                } else {
@@ -479,6 +480,15 @@ function parse_chat_cmd(e) {
                }
                break;
 
+            case 'rehash':
+               // PARITY: rustyrig-fw/rrclient/cmd.admin.c: cmd_rehash()
+               // Server checks admin/owner privs; reloads cfg + user db
+               socket.send(JSON.stringify({
+                  "msg": { "type": "rehash" },
+                  "ts": Math.floor(Date.now() / 1000)
+               }));
+               ChatBox.Append('<div><span class="notice">Rehash requested from server</span></div>');
+               break;
             case 'die':
             case 'restart':
                args_obj = {
