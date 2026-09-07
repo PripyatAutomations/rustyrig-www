@@ -122,7 +122,7 @@ function parse_userinfo_reply(message) {
 //    console.log("parse_userinfo_reply:", message);
     if (typeof message !== 'undefined') {
        // Server sends the PTT state as talk.tx (see srv.chat.c: ws_send_userinfo)
-       UserCache.update({ name: message.talk.user, privs: message.talk.privs, muted: parse_bool_field(message.talk.muted), ptt: parse_bool_field(message.talk.tx !== undefined ? message.talk.tx : message.talk.ptt), clones: message.talk.clones });
+       UserCache.update({ name: message.talk.user, privs: message.talk.privs, muted: parse_bool_field(message.talk.muted), ptt: parse_bool_field(message.talk.tx !== undefined ? message.talk.tx : message.talk.ptt), sessions: message.talk.sessions });
     }
 
     return false;
@@ -541,9 +541,9 @@ const UserCache = {
          ...(user.hasOwnProperty('ptt')   && { ptt:   user.ptt }),
          ...(user.hasOwnProperty('muted') && { muted: user.muted }),
          ...(user.hasOwnProperty('privs') && { privs: user.privs }),
-         ...(user.hasOwnProperty('clones') && { clones: user.clones })
+         ...(user.hasOwnProperty('sessions') && { sessions: user.sessions })
       };
-      console.log("UC.add: name:", user.name, "clones:", user.clones);
+      console.log("UC.add: name:", user.name, "sessions:", user.sessions);
       cul_render();
    },
 
@@ -551,12 +551,11 @@ const UserCache = {
       const entry = this.users[name];
       if (!entry) return;
 
-      console.log("UC.remove: name:", name, "clones:", entry.clones);
-
-      if (entry.clones <= 1) {
+      console.log("UC.remove: name:", name, "sessions:", entry.sessions);
+      if (entry.sessions <= 1) {
          delete this.users[name];
       } else {
-         entry.clones--;
+         entry.sessions--;
       }
 
       cul_render();
@@ -573,7 +572,7 @@ const UserCache = {
       if ('ptt'   in user) existing.ptt   = user.ptt;
       if ('privs' in user) existing.privs = user.privs;
       if ('muted' in user) existing.muted = user.muted;
-      if ('clones' in user) existing.clones = user.clones;
+      if ('sessions' in user) existing.sessions = user.sessions;
       cul_render();
    },
 
@@ -585,8 +584,8 @@ const UserCache = {
       return Object.entries(this.users).map(([name, props]) => ({ name, ...props }));
    },
 
-   clones(name) {
-      return this.users[name]?.refcount || 0;
+   sessions(name) {
+      return this.users[name]?.sessions || 0;
    },
 
    dump() {
@@ -733,9 +732,9 @@ function webui_parse_chat_msg(msgObj) {
 
          var muted_state = parse_bool_field(msgObj.talk.muted);
 
-         var clones = msgObj.talk.clones;
-         if (typeof clones !== 'undefined') {
-            UserCache.add({ name: user, ptt: ptt_state, muted: muted_state, privs: privs, clones: clones });
+         var sessions = msgObj.talk.sessions;
+         if (typeof sessions !== 'undefined') {
+            UserCache.add({ name: user, ptt: ptt_state, muted: muted_state, privs: privs, sessions: sessions });
          } else {
             UserCache.add({ name: user, ptt: ptt_state, muted: muted_state, privs: privs });
          }
@@ -806,7 +805,7 @@ function webui_parse_chat_msg(msgObj) {
          $('button.rig-ptt').removeAttr("disabled");
       }
    } else if (cmd === 'whois') {
-      // Flat whois reply (see srv.chat.c): talk.username/email/privs/muted/clones
+      // Flat whois reply (see srv.chat.c): talk.username/email/privs/muted/sessions
       // talk.connected/last_heard (unix ts) and talk.ua
       // Rendered IRC-style in the chat scrollback
       const username = msgObj.talk.username;
@@ -826,7 +825,7 @@ function webui_parse_chat_msg(msgObj) {
       if (parse_bool_field(msgObj.talk.muted)) {
          who_line(`This user is currently MUTEd. Rigctl is temporarily suspended.`, 'error');
       }
-      who_line(`Sessions:&nbsp;&nbsp;&nbsp;&nbsp;${msgObj.talk.clones || 0}`);
+      who_line(`Sessions:&nbsp;&nbsp;&nbsp;&nbsp;${msgObj.talk.sessions || 0}`);
       if (msgObj.talk.connected) {
          who_line(`Connected:&nbsp;&nbsp;&nbsp;${new Date(msgObj.talk.connected * 1000).toLocaleString()}`);
       }
