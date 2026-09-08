@@ -98,7 +98,7 @@ function ptt_btn_init() {
          },
          cat: {
             cmd: "ptt",
-            vfo: "A",
+            vfo: active_vfo,
             ptt: state
          }
       };
@@ -148,26 +148,18 @@ function webui_parse_cat_msg(msgObj) {
          UserCache.update({ name: user, ptt: ptt_active });
       }
    } else if (cmd === 'freq') {  // broadcast of a user freq change
-      var vfo = msgObj.cat.vfo || 'A';
+      var vfo = (msgObj.cat.vfo || 'A').toLowerCase();
       var freq = msgObj.cat.freq;
       if (typeof freq !== 'undefined' && freq > 0) {
-         if (vfo === 'B') {
-            $('span#vfo-b-freq').html(format_freq(freq) + '&nbsp;Hz');
-         } else {
-            $('span#vfo-a-freq').html(format_freq(freq) + '&nbsp;Hz');
-         }
+         $('span#vfo-' + vfo + '-freq').html(format_freq(freq) + '&nbsp;Hz');
          freq_set_digits(freq, $('#rig-freq'));
          $('.vfo-changed').removeClass('vfo-changed');
       }
    } else if (cmd === 'mode') {  // broadcast of a user mode change
-      var vfo = msgObj.cat.vfo || 'A';
+      var vfo = (msgObj.cat.vfo || 'A').toLowerCase();
       var mode = msgObj.cat.mode;
       if (typeof mode !== 'undefined') {
-         if (vfo === 'B') {
-            $('span#vfo-b-mode').html(mode);
-         } else {
-            $('span#vfo-a-mode').html(mode);
-         }
+         $('span#vfo-' + vfo + '-mode').html(mode);
       }
    } else {  // Nope, it's a state message
       var state = msgObj.cat.state;
@@ -178,6 +170,15 @@ function webui_parse_cat_msg(msgObj) {
       }
 
       const { freq, mode, ptt, width, vfo, power }  = state;
+
+      // The server is authoritative about which VFO is active (!vfo switches
+      // it server-side). Track its announcements here.
+      // PARITY: rrclient/vfo.c vfo_state_set_active()
+      if (typeof vfo !== 'undefined' && vfo && vfo !== '-') {
+         active_vfo = vfo;
+      }
+      var vfo_id = (typeof vfo !== 'undefined' && vfo && vfo !== '-') ? vfo.toLowerCase() : 'a';
+
       if (typeof ptt !== 'undefined') {
          if (ptt === "false") {
             $('button.rig-ptt').removeClass("red-btn");
@@ -187,46 +188,22 @@ function webui_parse_cat_msg(msgObj) {
          }
       }
       if (typeof freq !== 'undefined') {
-         if (vfo === "A") {
-            $('span#vfo-a-freq').html(format_freq(freq) + '&nbsp;Hz');
-         } else if (vfo === "B") {
-            $('span#vfo-b-freq').html(format_freq(freq) + '&nbsp;Hz');
-         } else if (vfo === "C") {
-            $('span#vfo-b-freq').html(format_freq(freq) + '&nbsp;Hz');
-         }
+         $('span#vfo-' + vfo_id + '-freq').html(format_freq(freq) + '&nbsp;Hz');
          let $input = $('#rig-freq');
          freq_set_digits(freq, $input);
          $('.vfo-changed').removeClass('vfo-changed');
       }
 
       if (typeof mode !== 'undefined') {
-         if (vfo === "A") {
-            $('span#vfo-a-mode').html(mode);
-         } else if (vfo === "B") {
-            $('span#vfo-b-mode').html(mode);
-         } else if (vfo === "C") {
-            $('span#vfo-c-mode').html(mode);
-         }
+         $('span#vfo-' + vfo_id + '-mode').html(mode);
       }
 
       if (typeof width !== 'undefined') {
-         if (vfo === "A") {
-            $('span#vfo-a-width').html(width + '&nbsp;Hz');
-         } else if (vfo === "B") {
-            $('span#vfo-b-width').html(width + '&nbsp;Hz');
-         } else if (vfo === "C") {
-            $('span#vfo-c-width').html(width + '&nbsp;Hz');
-         }
+         $('span#vfo-' + vfo_id + '-width').html(width + '&nbsp;Hz');
       }
 
       if (typeof power !== 'undefined') {
-         if (vfo === "A") {
-            $('span#vfo-a-power').html(power + '&nbsp;W');
-         } else if (vfo === "B") {
-            $('span#vfo-b-power').html(power + '&nbsp;W');
-         } else if (vfo === "C") {
-            $('span#vfo-c-power').html(power + '&nbsp;W');
-         }
+         $('span#vfo-' + vfo_id + '-power').html(power + '&nbsp;W');
       }
 
       var ptt_user = '';
