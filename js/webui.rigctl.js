@@ -172,9 +172,9 @@ function webui_parse_cat_msg(msgObj) {
       const { freq, mode, ptt, width, vfo, power }  = state;
 
       // The server is authoritative about which VFO is active (!vfo switches
-      // it server-side). Track its announcements here.
-      // PARITY: rrclient/vfo.c vfo_state_set_active()
-      if (typeof vfo !== 'undefined' && vfo && vfo !== '-') {
+      // it server-side and broadcasts cat.state.active with each cat.state).
+      // PARITY: rrclient/vfo.c vfo_set_dict() (cat.state.active handling)
+      if (state.active) {
          active_vfo = vfo;
       }
       var vfo_id = (typeof vfo !== 'undefined' && vfo && vfo !== '-') ? vfo.toLowerCase() : 'a';
