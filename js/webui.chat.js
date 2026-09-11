@@ -434,7 +434,7 @@ function parse_chat_cmd(e) {
                   ChatBox.Append('<div><span class="notice">/edit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Edit a user: &lt;user&gt;</span></div>');
                   ChatBox.Append('<div><span class="notice">&nbsp;/kick&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Kick a user: &lt;user&gt; &lt;reason&gt;</span></div>');
                   ChatBox.Append('<div><span class="notice">&nbsp;/mute&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Mute a user, disables their TX and chat: &lt;user&gt; &lt;reason&gt;</span></div>');
-                  ChatBox.Append('<div><span class="notice">&nbsp;/quota&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- TX quota admin: LIST | SHOW &lt;user&gt;... | ADD &lt;user&gt; &lt;mins&gt; | RESET &lt;user&gt;... | SET &lt;user&gt; &lt;mins&gt;</span></div>');
+                  ChatBox.Append('<div><span class="notice">&nbsp;/quota&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- TX quota admin (bare /quota = list+help): LIST | SHOW &lt;user&gt;... | ADD &lt;user&gt; &lt;mins&gt; | RESET &lt;user&gt;... | SET &lt;user&gt; &lt;mins&gt;</span></div>');
                   ChatBox.Append('<div><span class="notice">&nbsp;/rehash&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Reload the server configuration &amp; user database</span></div>');
                   ChatBox.Append('<div><span class="notice">&nbsp;/restart&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Restart the server &lt;reason&gt;</span></div>');
                   ChatBox.Append('<div><span class="notice">&nbsp;/unmute&nbsp;&nbsp;&nbsp;- Unmute a user, enables their TX (if privileged): &lt;user&gt;</span></div>');
@@ -489,6 +489,13 @@ function parse_chat_cmd(e) {
                   args_obj = {
                      target: args[1]
                   };
+               } else {
+                  // Bare /quota is a shortcut for LIST + showing the help
+                  args_obj = {
+                     target: 'LIST'
+                  };
+                  ChatBox.Append('<div><span class="notice">Usage: /quota LIST | SHOW &lt;user&gt;... | ADD &lt;user&gt; &lt;minutes&gt; | RESET &lt;user&gt;... | SET &lt;user&gt; &lt;minutes&gt;</span></div>');
+                  ChatBox.Append('<div><span class="notice">&nbsp;&nbsp;ADD/SET take minutes (0 = no TX allowed); SHOW shows seconds too.</span></div>');
                }
                break;
 
