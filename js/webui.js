@@ -214,6 +214,10 @@ function webui_handle_ws_msg(event) {
          } else if (msgObj.talk) {		// Handle Chat messages
             webui_parse_chat_msg(msgObj);
          } else if (msgObj.media) {		// Media control messages
+            // PARITY: www/js/webui.media.js (channel subscribe handling)
+            if (webui_parse_media_msg(msgObj) ) {
+               return true;
+            }
             if (msgObj.rate) {
                audio_rate_rx = msgObj.rate;
             }
