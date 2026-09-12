@@ -17,6 +17,45 @@ function handle_chat_completion(e) {
 
       if (!completing) {
          const beforeCaret = text.slice(0, caretPos);
+
+         /* PARITY: rrclient/cmd.c client_cmd_completions() /quota handling
+          * First argument completes LIST|SHOW|ADD|RESET|SET|HELP + usernames,
+          * later arguments complete usernames only. */
+         if (beforeCaret.toLowerCase().startsWith('/quota')) {
+            const qword = /\S*$/.exec(beforeCaret)[0];
+            const wordStart = caretPos - qword.length;
+            const before = beforeCaret.slice(6, wordStart);
+            const ntok = (before.match(/\S+/g) || []).length;
+            let candidates = [];
+
+            if (ntok === 0) {
+               const kw = ['LIST', 'SHOW', 'ADD', 'RESET', 'SET', 'HELP'];
+               candidates = kw.filter(k => k.toLowerCase().startsWith(qword.toLowerCase()));
+               candidates = candidates.concat(getCULNames().filter(name => name.toLowerCase().startsWith(qword.toLowerCase())));
+            } else {
+               candidates = getCULNames().filter(name => name.toLowerCase().startsWith(qword.toLowerCase()));
+            }
+
+            if (candidates.length) {
+               completionList = candidates;
+               matchStart = wordStart;
+               matchLength = qword.length;
+               completing = true;
+               completionIndex = 0;
+
+               const current = completionList[0];
+               const afterCaret = text.slice(caretPos);
+               const completed = text.slice(0, matchStart) + current + afterCaret;
+
+               input.val(completed);
+               const newCaret = matchStart + current.length;
+               this.setSelectionRange(newCaret, newCaret);
+               updateCompletionIndicator(current);
+               completionIndex = 1 % completionList.length;
+            }
+            return;
+         }
+
          const match = beforeCaret.match(/@(\w*)$/);
 
          if (match) {
