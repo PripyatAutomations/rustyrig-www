@@ -403,6 +403,52 @@ function parse_chat_cmd(e) {
                console.log("Unmuting RX audio");
                rxGainNode.gain.value = unmute_vol;
                break;
+            case 'media':
+               // PARITY: rustyrig-fw/rrclient/media.c: cmd_media()
+               var sub = (args.length > 1 ? args[1].toLowerCase() : 'list');
+
+               if (sub === 'list' || sub === '') {
+                  mediaListChannels();
+                  if (args.length < 2) {
+                     requestMediaChannels();
+                  }
+               } else if (sub === 'sub' || sub === 'subscribe' ||
+                          sub === 'unsub' || sub === 'unsubscribe') {
+                  if (args.length < 3 || args[2] === '') {
+                     ChatBox.Append('<div><span class="error">Usage: /media ' + sub + ' &lt;uuid|#&gt;</span></div>');
+                     break;
+                  }
+                  var chan = mediaChanLookup(args[2]);
+                  var unsub = (sub.startsWith('un'));
+
+                  if (!chan) {
+                     if (unsub) {
+                        ChatBox.Append('<div><span class="error">No such channel |' + args[2] + '|</span></div>');
+                     } else {
+                        // Not known locally: pass through, server may create one
+                        subscribeMediaChannel(args[2]);
+                     }
+                     break;
+                  }
+                  if (unsub) {
+                     if (!chan.subscribed) {
+                        ChatBox.Append('<div><span class="notice">Not subscribed to ' + chan.uuid + '</span></div>');
+                     } else {
+                        ChatBox.Append('<div><span class="notice">Unsubscribing from ' + chan.uuid + '</span></div>');
+                        unsubscribeMediaChannel(chan.uuid);
+                     }
+                  } else {
+                     if (chan.subscribed) {
+                        ChatBox.Append('<div><span class="notice">Already subscribed to ' + chan.uuid + '</span></div>');
+                     } else {
+                        ChatBox.Append('<div><span class="notice">Subscribing to ' + chan.uuid + '</span></div>');
+                        subscribeMediaChannel(chan.uuid);
+                     }
+                  }
+               } else {
+                  ChatBox.Append('<div><span class="error">Usage: /media [LIST | SUB|SUBSCRIBE &lt;uuid|#&gt; | UNSUB|UNSUBSCRIBE &lt;uuid|#&gt;]</span></div>');
+               }
+               break;
             case 'help':
                ChatBox.Append('<div><span class="notice">*** HELP *** All commands start with /</span></div>');
                ChatBox.Append('<div><span class="notice">/ chat | (cfg|config) | rig | log to switch tabs</span></div>');
@@ -415,7 +461,8 @@ function parse_chat_cmd(e) {
                ChatBox.Append('<div><span class="notice">&nbsp;/quit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Disconnect</span></div>');
 
                ChatBox.Append('<br/><div><span class="notice">*** AUDIO - Audio Settings</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/rxvol&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Set volume in % [vol]</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/media&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Media channels: LIST | SUBSCRIBE &lt;uuid|#&gt; | UNSUBSCRIBE &lt;uuid|#&gt;</span></div>');
+            ChatBox.Append('<div><span class="notice">&nbsp;/rxvol&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Set volume in % [vol]</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/rxmute | /rxunmute&nbsp;&nbsp;&nbsp;- Mute/Unmute RX audio</span></div>');
 
                //////
@@ -542,6 +589,10 @@ function parse_chat_cmd(e) {
          };
          socket.send(JSON.stringify(msgObj));
       }
+
+      // Record the sent line in the input history (for up/down recall)
+      /* PARITY: rustyrig-fw/librustyaxe/tui.keys.c history_add() */
+      chat_history_add(message);
 
       // Clear the input field and after a delay re-focus it, to avoid flashing
       $('#chat-input').val('');

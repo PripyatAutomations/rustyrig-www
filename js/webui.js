@@ -140,15 +140,28 @@ function ws_connect() {
 }
 
 function handle_binary_frame(event) {
-      if (event.data instanceof ArrayBuffer) {
-         if (typeof audio_codec_rx !== 'string' || audio_codec_rx.length === 0) {
-            playAudioPacket(event.data, audio_codec_rx);
-         } else {
-           playAudioPacket(event.data, "mu08");
-         }
-      } else {
-         console.log("Invalid binary frame (not ArrayBuffer)");
-      }
+   if (!(event.data instanceof ArrayBuffer)) {
+      console.log("Invalid binary frame (not ArrayBuffer)");
+      return;
+   }
+
+   /* PARITY: librrprotocol/ws.binframe.h */
+   var f = binframe_parse(event.data);
+   if (f === null) {
+      // Legacy/raw framing: fall back to negotiated rx codec
+      playAudioPacket(event.data, audio_codec_rx);
+      return;
+   }
+
+   if (!binframe_is_audio(f)) {
+      // Other subsystems (waterfall, control, etc) not handled yet
+      return;
+   }
+
+   // Copy payload out of the ws buffer so audio code owns it
+   var payload = f.payload.buffer.slice(f.payload.byteOffset,
+                                        f.payload.byteOffset + f.payload.byteLength);
+   playAudioPacket(payload, f.codec);
 }
 
 function webui_handle_ws_msg(event) {
@@ -215,7 +228,8 @@ function webui_handle_ws_msg(event) {
             webui_parse_chat_msg(msgObj);
          } else if (msgObj.media) {		// Media control messages
             // PARITY: www/js/webui.media.js (channel subscribe handling)
-            if (webui_parse_media_msg(msgObj) ) {
+            if (typeof webui_parse_media_msg === "function" &&
+                webui_parse_media_msg(msgObj) ) {
                return true;
             }
             if (msgObj.rate) {

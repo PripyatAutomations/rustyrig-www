@@ -8,7 +8,6 @@
 
    $(document).on('keydown', function(e) {
       // Handle login field focus transition
-/*
       if (document.activeElement.matches('form#login input#user')) {
          if ((e.key === 'Enter') || (e.key === 'Tab' && !e.shiftKey)) {
             e.preventDefault();
@@ -18,7 +17,6 @@
       } else if (active_tab === 'chat') {
          handle_chat_completion(e);
       }
-*/
       // Prevent zooming in/out
       if (e.ctrlKey && (
             e.key === '+' || e.key === '-' || 

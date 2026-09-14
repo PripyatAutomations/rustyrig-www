@@ -142,3 +142,59 @@ window.webui_inits.push(function webui_media_init() {
       mediaReady = true;
    }
 });
+
+// Look up a media channel by uuid or by #index (1-based, from last listing).
+// PARITY: rrclient/media.c media_chan_lookup()
+var mediaLastList = [];   // uuids in order of the last /media list output
+
+function mediaChanLookup(ref) {
+   if (!ref) {
+      return null;
+   }
+   // #N refers to the Nth entry from the most recent listing
+   if (ref.charAt(0) === '#') {
+      var idx = parseInt(ref.slice(1), 10);
+      if (isNaN(idx) || idx < 1 || idx > mediaLastList.length) {
+         return null;
+      }
+      return mediaChannels[mediaLastList[idx - 1]] || null;
+   }
+   return mediaChannels[ref] || null;
+}
+
+// Format one channel entry for display
+function mediaFormatChan(idx, chan) {
+   var sub = chan.subsystem === 0x01 ? 'audio' :
+             chan.subsystem === 0x02 ? 'video' :
+             ('sub-' + chan.subsystem);
+   var dir = chan.dir === 0 ? 'rx' : chan.dir === 1 ? 'tx' : 'n/a';
+   return '#' + idx + ' ' + chan.uuid + ' [' + sub + ' ' + dir +
+          ' vfo:' + (chan.vfo === 0xFF ? '*' : String.fromCharCode(65 + chan.vfo)) +
+          ' rig:' + (chan.rig === 0xFF ? '*' : chan.rig) + ']' +
+          ' codec: ' + (chan.codec || '(none)') +
+          (chan.subscribed ? ' [subscribed]' : '') +
+          (chan.descr ? ' - ' + chan.descr : '');
+}
+
+// Print a listing of known media channels to chat.
+// Rebuilds mediaLastList so /media subscribe #N works.
+function mediaListChannels() {
+   var uuids = Object.keys(mediaChannels);
+   mediaLastList = uuids;
+
+   if (typeof ChatBox === 'undefined' || !ChatBox.Append) {
+      console.log("media:", uuids.length, "channels known");
+      return;
+   }
+   if (uuids.length === 0) {
+      ChatBox.Append('<div><span class="notice">No media channels known yet (server may not have announced any).</span></div>');
+      return;
+   }
+   ChatBox.Append('<div><span class="notice">*** Media channels (' + uuids.length + ') ***</span></div>');
+   for (var i = 0; i < uuids.length; i++) {
+      var chan = mediaChannels[uuids[i]];
+      ChatBox.Append('<div><span class="notice">&nbsp;' + mediaFormatChan(i + 1, chan) + '</span></div>');
+   }
+}
+
+// Print a listing of known media channels to chat.

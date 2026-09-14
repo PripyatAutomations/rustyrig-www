@@ -7,6 +7,52 @@ let completionIndex = 0;
 let matchStart = 0;
 let matchLength = 0;
 
+/* PARITY: rustyrig-fw/librustyaxe/tui.keys.c history_add()/history_prev()/history_next() */
+let inputHistory = [];
+let inputHistoryIndex = -1;   // -1 means "at the prompt" (no entry recalled)
+const INPUT_HISTORY_MAX = 50; // HISTORY_LINES in tui.h
+
+function chat_history_add(line) {
+   if (!line) {
+      return;
+   }
+   // avoid consecutive duplicates, like most shells
+   if (inputHistory.length && inputHistory[inputHistory.length - 1] === line) {
+      inputHistoryIndex = -1;
+      return;
+   }
+   inputHistory.push(line);
+   if (inputHistory.length > INPUT_HISTORY_MAX) {
+      inputHistory.shift();
+   }
+   inputHistoryIndex = -1;
+}
+
+function showPreviousInput() {
+   if (!inputHistory.length) {
+      return;
+   }
+   if (inputHistoryIndex < 0) {
+      inputHistoryIndex = inputHistory.length - 1;
+   } else if (inputHistoryIndex > 0) {
+      inputHistoryIndex--;
+   }
+   $('#chat-input').val(inputHistory[inputHistoryIndex]);
+}
+
+function showNextInput() {
+   if (!inputHistory.length || inputHistoryIndex < 0) {
+      return;
+   }
+   inputHistoryIndex++;
+   if (inputHistoryIndex >= inputHistory.length) {
+      inputHistoryIndex = -1;
+      $('#chat-input').val('');
+      return;
+   }
+   $('#chat-input').val(inputHistory[inputHistoryIndex]);
+}
+
 function handle_chat_completion(e) {
    const input = $('#chat-input');
    const text = input.val();
@@ -110,24 +156,23 @@ function handle_chat_completion(e) {
       e.preventDefault();
 
       let chatBox = $("#chat-box");
-      let scrollAmount = 30;
       let pageScrollAmount = chatBox.outerHeight();
 
       if (e.ctrlKey) {
          if (e.key === "ArrowUp") {
-            console.log("scroll up");
-  //               showPreviousInput();
+            showPreviousInput();
          } else if (e.key === "ArrowDown") {
-            console.log("scrown down");
-  //               showNextInput();
+            showNextInput();
          }
          return;
       } else {
-         // XXX: FInish this, to allow ctrl-up/down to scroll the input
+         // Plain up/down walks the input history; PageUp/PageDown scroll the chat box
          if (e.key === "ArrowUp") {
-            chatBox.scrollTop(chatBox.scrollTop() - scrollAmount);
+            showPreviousInput();
+            return;
          } else if (e.key === "ArrowDown") {
-            chatBox.scrollTop(chatBox.scrollTop() + scrollAmount);
+            showNextInput();
+            return;
          } else if (e.key === "PageUp") {
             chatBox.scrollTop(chatBox.scrollTop() - pageScrollAmount);
          } else if (e.key === "PageDown") {

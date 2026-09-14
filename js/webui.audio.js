@@ -107,6 +107,10 @@ function playAudioPacket(buffer, codec = 'mu16') {
 }
 
 function decodePCM16ToFloat32(buffer) {
+   if (buffer.byteLength % 2 !== 0) {
+      console.warn("PCM16 payload with odd length:", buffer.byteLength);
+      buffer = buffer.slice(0, buffer.byteLength - 1);
+   }
    const pcmData = new Int16Array(buffer);
    const float32Data = new Float32Array(pcmData.length);
 
@@ -187,6 +191,20 @@ $('#rig-tx-vol').change(function() {
    txGainNode.gain.value = parseFloat($(this).val());
    console.log("TX vol:", txGainNode.gain.value);
 });
+
+// Browsers start AudioContexts suspended until a user gesture; resume on
+// the first click/keypress anywhere so playback is actually audible.
+function webui_audio_resume() {
+   if (rxCtx.state === 'suspended') {
+      rxCtx.resume();
+   }
+   if (txCtx.state === 'suspended') {
+      txCtx.resume();
+   }
+}
+
+document.addEventListener('click', webui_audio_resume);
+document.addEventListener('keydown', webui_audio_resume);
 
 window.webui_inits.push(function webui_audio_init() {
    $('button#use-audio').click();
