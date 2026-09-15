@@ -208,7 +208,8 @@ function webui_parse_auth_msg(msgObj) {
 
          logged_in = true;
 
-         // Send our codec capabilities and set mu08 as our default rxcodec
+         // The browser currently advertises PC16 and 8 kHz μ-law.  The
+         // selected RX codec must be one from that capability list.
          ws_send_capab_msg();
          ws_send_rx_codec('mu08');
 

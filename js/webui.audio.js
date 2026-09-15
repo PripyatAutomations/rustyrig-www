@@ -1,7 +1,9 @@
 if (!window.webui_inits) window.webui_inits = [];
 
 // This is optimized default for our typical use case, remote stations on LTE or starlink where upstream is small-ish
-var audio_codec_rx = "mu16";
+// PARITY: librrprotocol/cli.media.c + librrprotocol/ws.binframe.h
+// Keep this capability list and the decoder switch below synchronized.
+var audio_codec_rx = "mu08";
 var audio_codec_tx = "pc16";
 var audio_rate_rx = 16000;
 var audio_rate_tx = 16000;
@@ -66,14 +68,16 @@ function decodeMulawToFloat32(buffer) {
 }
 
 function mulawDecode8(u_val) {
-   const MULAW_MAX = 0x1FFF;
-   const BIAS = 33;
+   // ITU-T G.711 μ-law: complement the codeword, restore its exponent and
+   // remove the 0x84 bias.  The old bias of 33 produced a badly distorted
+   // waveform from otherwise valid mu08 frames.
+   const BIAS = 0x84;
 
    u_val = ~u_val;
 
    let t = ((u_val & 0x0F) << 3) + BIAS;
    t <<= ((u_val & 0x70) >> 4);
-
+   t -= BIAS;
    return (u_val & 0x80) ? -t : t;
 }
 
@@ -133,8 +137,11 @@ function playFloat32Samples(float32Data, sampleRate) {
    source.connect(rxGainNode);
 
    const rxNow = rxCtx.currentTime;
-   if (rxTime < rxNow) {
-      rxTime = rxNow;
+   // Keep a modest queue ahead of the hardware clock.  Starting exactly at
+   // `currentTime` makes normal WebSocket jitter audible as periodic gaps.
+   const rxLead = 0.075;
+   if (rxTime < rxNow + rxLead) {
+      rxTime = rxNow + rxLead;
    }
 
    source.start(rxTime);
@@ -148,7 +155,7 @@ function ws_send_capab_msg() {
       },
       "media": {
          "cmd": "capab",
-         "payload": "pc16 mu16 mu08"
+         "codecs": "pc16 mu08"
       }
    }
    socket.send(JSON.stringify(capab_msg));
