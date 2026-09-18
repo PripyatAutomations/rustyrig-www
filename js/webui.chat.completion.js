@@ -53,6 +53,40 @@ function showNextInput() {
    $('#chat-input').val(inputHistory[inputHistoryIndex]);
 }
 
+// PARITY: rustyrig-fw/rrclient/cmd.completion.c (shared command parameters)
+function chat_parameter_candidates(beforeCaret) {
+   const word = /\S*$/.exec(beforeCaret)[0];
+   const tokens = beforeCaret.slice(0, beforeCaret.length - word.length).trim().split(/\s+/);
+   const command = tokens[0].toLowerCase();
+   const arg = tokens.length;
+   const first = (tokens[1] || '').toUpperCase();
+   let values = [];
+   if (['/whois', '/kick', '/ban', '/mute', '/unmute'].includes(command)) {
+      if (arg === 1) values = getCULNames();
+   } else if (command === '/quota') {
+      if (arg === 1) values = ['LIST', 'SHOW', 'ADD', 'RESET', 'SET', 'HELP'];
+      if (arg === 1 || ['SHOW', 'RESET'].includes(first) ||
+          (arg === 2 && ['ADD', 'SET'].includes(first))) values = values.concat(getCULNames());
+   } else if (command === '/media') {
+      if (arg === 1) values = ['LIST', 'SUBSCRIBE', 'UNSUBSCRIBE', 'SUB', 'UNSUB'];
+      if (arg === 2 && ['SUBSCRIBE', 'UNSUBSCRIBE', 'SUB', 'UNSUB'].includes(first)) {
+         const channels = typeof mediaChannels === 'undefined' ? {} : mediaChannels;
+         const numbers = typeof mediaLastList === 'undefined' ? [] : mediaLastList;
+         Object.keys(channels).forEach(uuid => {
+            if (first.startsWith('UN') && !channels[uuid].subscribed) return;
+            values.push(uuid);
+            const number = numbers.indexOf(uuid) + 1;
+            if (number) values.push('#' + number);
+         });
+      }
+   } else if (command === '/syslog') {
+      if (arg === 1) values = ['on', 'off'];
+   } else {
+      return null;
+   }
+   return values.filter(value => value.toLowerCase().startsWith(word.toLowerCase()));
+}
+
 function handle_chat_completion(e) {
    const input = $('#chat-input');
    const text = input.val();
@@ -64,40 +98,21 @@ function handle_chat_completion(e) {
       if (!completing) {
          const beforeCaret = text.slice(0, caretPos);
 
-         /* PARITY: rrclient/cmd.c client_cmd_completions() /quota handling
-          * First argument completes LIST|SHOW|ADD|RESET|SET|HELP + usernames,
-          * later arguments complete usernames only. */
-         if (beforeCaret.toLowerCase().startsWith('/quota')) {
-            const qword = /\S*$/.exec(beforeCaret)[0];
-            const wordStart = caretPos - qword.length;
-            const before = beforeCaret.slice(6, wordStart);
-            const ntok = (before.match(/\S+/g) || []).length;
-            let candidates = [];
-
-            if (ntok === 0) {
-               const kw = ['LIST', 'SHOW', 'ADD', 'RESET', 'SET', 'HELP'];
-               candidates = kw.filter(k => k.toLowerCase().startsWith(qword.toLowerCase()));
-               candidates = candidates.concat(getCULNames().filter(name => name.toLowerCase().startsWith(qword.toLowerCase())));
-            } else {
-               candidates = getCULNames().filter(name => name.toLowerCase().startsWith(qword.toLowerCase()));
-            }
-
+         const candidates = chat_parameter_candidates(beforeCaret);
+         if (candidates !== null) {
+            const word = /\S*$/.exec(beforeCaret)[0];
             if (candidates.length) {
                completionList = candidates;
-               matchStart = wordStart;
-               matchLength = qword.length;
+               matchStart = caretPos - word.length;
+               matchLength = word.length;
                completing = true;
                completionIndex = 0;
-
-               const current = completionList[0];
-               const afterCaret = text.slice(caretPos);
-               const completed = text.slice(0, matchStart) + current + afterCaret;
-
-               input.val(completed);
+               const current = completionList[completionIndex++];
+               input.val(text.slice(0, matchStart) + current + text.slice(caretPos));
                const newCaret = matchStart + current.length;
                this.setSelectionRange(newCaret, newCaret);
                updateCompletionIndicator(current);
-               completionIndex = 1 % completionList.length;
+               completionIndex %= completionList.length;
             }
             return;
          }
