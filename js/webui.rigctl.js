@@ -178,6 +178,7 @@ function webui_parse_cat_msg(msgObj) {
       // PARITY: rrclient/vfo.c vfo_set_dict() (cat.state.active handling)
       if (state.active) {
          active_vfo = vfo;
+         if (typeof mediaSyncActiveVfo === 'function') mediaSyncActiveVfo();
       }
       var vfo_id = (typeof vfo !== 'undefined' && vfo && vfo !== '-') ? vfo.toLowerCase() : 'a';
 

@@ -60,16 +60,24 @@ function stopTransmit() {
 
 function webui_tx_channel() {
    if (typeof mediaChannels === 'undefined') return null;
-   var result = null;
+   var active = typeof activeVfoId === 'function' ? activeVfoId() :
+      (typeof active_vfo !== 'undefined' ? active_vfo : 'A');
+   var activeId = typeof vfoLetterToId === 'function' ? vfoLetterToId(active) : 0;
+   var wildcard = null;
    Object.keys(mediaChannels).some(function(uuid) {
       var chan = mediaChannels[uuid];
-      if (chan && chan.subsystem === 0x01 && chan.dir === 1 && chan.subscribed) {
-         result = chan;
+      if (!chan || chan.subsystem !== 0x01 || chan.dir !== 1 ||
+          !chan.subscribed || typeof chan.stream !== 'number') {
+         return false;
+      }
+      if (chan.vfo === activeId) {
+         wildcard = chan;
          return true;
       }
+      if (chan.vfo === 0xFF && !wildcard) wildcard = chan;
       return false;
    });
-   return result;
+   return wildcard;
 }
 
 function webui_encode_mulaw(sample) {

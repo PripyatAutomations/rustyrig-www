@@ -57,6 +57,7 @@ function requestMediaChannels() {
 
 function activeVfoId() {
    // webui.rigctl.js tracks the active VFO as a letter; default A
+   if (typeof active_vfo !== "undefined" && active_vfo) return active_vfo;
    return (typeof cat_state !== "undefined" && cat_state.active) ? cat_state.active : "A";
 }
 
@@ -80,8 +81,27 @@ function mediaTryAutosubscribe(entry) {
    if (entry.vfo !== vfoLetterToId(activeVfoId()) && entry.vfo !== 0xFF) {
       return;
    }
+   entry.auto = true;
    entry.subscribed = true;
    subscribeMediaChannel(entry.uuid);
+}
+
+// Keep the automatic audio pair aligned with the VFO shown by the UI. An
+// explicitly selected non-active channel remains untouched; only channels
+// that were auto-subscribed for another VFO are released here.
+function mediaSyncActiveVfo() {
+   if (!mediaReady) return;
+   var active = vfoLetterToId(activeVfoId());
+   Object.keys(mediaChannels).forEach(function(uuid) {
+      var entry = mediaChannels[uuid];
+      if (!entry || entry.subsystem !== 0x01 || entry.vfo === 0xFF) return;
+      if (entry.vfo === active) {
+         mediaTryAutosubscribe(entry);
+      } else if (entry.auto && entry.subscribed && !entry.disabled) {
+         entry.subscribed = false;
+         unsubscribeMediaChannel(uuid);
+      }
+   });
 }
 
 // Called from webui.js handle_text_frame for msgObj.media with
