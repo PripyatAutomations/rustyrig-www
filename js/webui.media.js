@@ -96,16 +96,20 @@ function webui_parse_media_msg(msgObj) {
       var uuid = m["chan-uuid"];
 
       if (uuid) {
-         mediaChannels[uuid] = {
+         // The server may re-announce availability after a codec change.
+         // Refresh metadata without losing the subscription state; otherwise
+         // each announcement starts another subscribe/codec negotiation loop.
+         var entry = mediaChannels[uuid] || {
             uuid: uuid,
-            subsystem: m.subsys,
-            dir: m.dir,
-            vfo: m.vfo,
-            rig: m.rig,
-            codec: m.codec || null,
-            descr: m.descr || "",
             subscribed: false
          };
+         entry.subsystem = m.subsys;
+         entry.dir = m.dir;
+         entry.vfo = m.vfo;
+         entry.rig = m.rig;
+         entry.codec = m.codec || entry.codec || null;
+         entry.descr = m.descr || entry.descr || "";
+         mediaChannels[uuid] = entry;
          console.log("Media channel available:", uuid, mediaChannels[uuid]);
          mediaTryAutosubscribe(mediaChannels[uuid]);
       }
@@ -116,6 +120,17 @@ function webui_parse_media_msg(msgObj) {
       if (u && mediaChannels[u]) {
          mediaChannels[u].subscribed = true;
          mediaChannels[u].stream = m.stream;
+         if (m.codec) {
+            mediaChannels[u].codec = m.codec;
+         }
+         if (typeof ws_send_codec_for_direction === "function" &&
+             mediaChannels[u].subsystem === 0x01 &&
+             (!m.codec || mediaChannels[u].codec !==
+                (mediaChannels[u].dir === 1 ? audio_codec_tx : audio_codec_rx))) {
+            ws_send_codec_for_direction(
+               mediaChannels[u].dir === 1 ? audio_codec_tx : audio_codec_rx,
+               mediaChannels[u].dir, u);
+         }
       }
       console.log("Subscribed to media channel", u, "stream", m.stream);
       return true;

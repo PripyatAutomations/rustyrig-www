@@ -233,10 +233,19 @@ function webui_handle_ws_msg(event) {
                return true;
             }
             if (msgObj.rate) {
-               audio_rate_rx = msgObj.rate;
+               if (msgObj.media && msgObj.media.channel === 'tx') {
+                  audio_rate_tx = msgObj.rate;
+               } else {
+                  audio_rate_rx = msgObj.rate;
+               }
             }
-            if (msgObj.codec) {
-               audio_codec_rx = msgObj.codec;
+            var media_codec = msgObj.media.codec || msgObj.codec;
+            if (media_codec) {
+               if (msgObj.media && (msgObj.media.channel === 'tx' || msgObj.media.dir === 1)) {
+                  audio_codec_tx = media_codec;
+               } else {
+                  audio_codec_rx = media_codec;
+               }
             }
          } else if (msgObj.log) {
             var data = msgObj.log.data;

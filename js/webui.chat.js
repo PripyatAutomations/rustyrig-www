@@ -393,6 +393,23 @@ function parse_chat_cmd(e) {
                console.log("Set volume to " + args[1] + "%");
                rxGainNode.gain.value = parseFloat($('#rig-rx-vol').val());
                break;
+            case 'rxcodec':
+            case 'txcodec': {
+               var codec_direction_tx = command.toLowerCase() === 'txcodec';
+               var requested_codec = args.length > 1 ? args[1].toLowerCase() : 'list';
+               if (requested_codec === 'list') {
+                  ChatBox.Append('<div><span class="notice">' +
+                     (codec_direction_tx ? 'TX' : 'RX') + ' codecs: ' +
+                     audio_common_codecs.join(' ') +
+                     (audio_opus_supported ? ' opus' : '') +
+                     (audio_aac_supported ? ' aacv' : '') +
+                     (audio_g722_supported ? ' g722' : '') + '</span></div>');
+               } else if (!webui_audio_set_codec(requested_codec, codec_direction_tx)) {
+                  ChatBox.Append('<div><span class="error">Unsupported browser audio codec: ' +
+                     requested_codec + '</span></div>');
+               }
+               break;
+            }
             case 'rxmute':
                unmute_vol = $('#rig-rx-vol').val();
                rxGainNode.gain.value = 0;
@@ -462,6 +479,7 @@ function parse_chat_cmd(e) {
 
                ChatBox.Append('<br/><div><span class="notice">*** AUDIO - Audio Settings</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/media&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Media channels: LIST | SUBSCRIBE &lt;uuid|#&gt; | UNSUBSCRIBE &lt;uuid|#&gt;</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/rxcodec [codec|LIST] | /txcodec [codec|LIST] - Select browser audio codec</span></div>');
             ChatBox.Append('<div><span class="notice">&nbsp;/rxvol&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Set volume in % [vol]</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/rxmute | /rxunmute&nbsp;&nbsp;&nbsp;- Mute/Unmute RX audio</span></div>');
 

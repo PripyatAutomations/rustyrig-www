@@ -208,10 +208,11 @@ function webui_parse_auth_msg(msgObj) {
 
          logged_in = true;
 
-         // The browser currently advertises PC16 and 8 kHz μ-law.  The
-         // selected RX codec must be one from that capability list.
+         // The browser advertises the codecs it can decode.  RX and TX are
+         // negotiated independently, as in rrclient.
          ws_send_capab_msg();
          ws_send_rx_codec('mu08');
+         ws_send_tx_codec('pc16');
 
          wm_switch_tab(active_tab);
          var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
