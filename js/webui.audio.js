@@ -8,6 +8,13 @@ var audio_codec_tx = "pc16";
 var audio_rate_rx = 16000;
 var audio_rate_tx = 16000;
 var audio_common_codecs = ["pc16", "mu08"];
+var audio_tx_codecs = ["pc16", "mu08"];
+var audio_direction_disabled = [false, false];
+var tx_mic_stream = null;
+var tx_mic_source = null;
+var tx_mic_processor = null;
+var tx_mic_silence = null;
+var tx_pcm_pending = new Int16Array(0);
 
 // Keep the browser capability list deliberately honest.  G.722 is not a
 // WebAudio primitive and WebCodecs support is still uncommon; advertise it
@@ -49,6 +56,111 @@ function stopPlayback() {
 // Halt transmit
 function stopTransmit() {
    txTime = txCtx.currentTime;
+}
+
+function webui_tx_channel() {
+   if (typeof mediaChannels === 'undefined') return null;
+   var result = null;
+   Object.keys(mediaChannels).some(function(uuid) {
+      var chan = mediaChannels[uuid];
+      if (chan && chan.subsystem === 0x01 && chan.dir === 1 && chan.subscribed) {
+         result = chan;
+         return true;
+      }
+      return false;
+   });
+   return result;
+}
+
+function webui_encode_mulaw(sample) {
+   var sign = sample < 0 ? 0x80 : 0;
+   var value = Math.min(32635, Math.abs(sample)) + 132;
+   var exponent = 7;
+   for (var mask = 0x4000; (value & mask) === 0 && exponent > 0; mask >>= 1) exponent--;
+   return ~(sign | (exponent << 4) | ((value >> (exponent + 3)) & 0x0F)) & 0xFF;
+}
+
+function webui_resample_to_16k(input, sourceRate) {
+   if (sourceRate === 16000) return input;
+   var output = new Float32Array(Math.max(1, Math.floor(input.length * 16000 / sourceRate)));
+   var step = sourceRate / 16000;
+   for (var i = 0; i < output.length; i++) {
+      var position = i * step;
+      var left = Math.min(input.length - 1, Math.floor(position));
+      var right = Math.min(input.length - 1, left + 1);
+      output[i] = input[left] + (input[right] - input[left]) * (position - left);
+   }
+   return output;
+}
+
+function webui_append_tx_samples(samples) {
+   var joined = new Int16Array(tx_pcm_pending.length + samples.length);
+   joined.set(tx_pcm_pending);
+   joined.set(samples, tx_pcm_pending.length);
+   tx_pcm_pending = joined;
+   var chan = webui_tx_channel();
+   if (!chan || !window.socket || socket.readyState !== WebSocket.OPEN) return;
+   var codec = audio_codec_tx;
+   if (audio_tx_codecs.indexOf(codec) < 0) return;
+   while (tx_pcm_pending.length >= 320) {
+      var frameSamples = tx_pcm_pending.slice(0, 320);
+      tx_pcm_pending = tx_pcm_pending.slice(320);
+      var payload = codec === 'mu08' ? new Uint8Array(320) : new Uint8Array(frameSamples.buffer);
+      if (codec === 'mu08') {
+         for (var i = 0; i < frameSamples.length; i++) payload[i] = webui_encode_mulaw(frameSamples[i]);
+      }
+      var frame = binframe_build_audio(codec, 1, chan.vfo, chan.rig, chan.stream, payload);
+      if (frame) socket.send(frame);
+   }
+}
+
+async function webui_start_microphone() {
+   if (tx_mic_stream) return true;
+   if (audio_tx_codecs.indexOf(audio_codec_tx) < 0 || !navigator.mediaDevices ||
+       !navigator.mediaDevices.getUserMedia) return false;
+   try {
+      tx_mic_stream = await navigator.mediaDevices.getUserMedia({ audio: {
+         channelCount: 1, echoCancellation: false, noiseSuppression: false,
+         autoGainControl: false
+      }});
+      await txCtx.resume();
+      tx_mic_source = txCtx.createMediaStreamSource(tx_mic_stream);
+      tx_mic_processor = txCtx.createScriptProcessor(4096, 1, 1);
+      tx_mic_silence = txCtx.createGain();
+      tx_mic_silence.gain.value = 0;
+      tx_mic_processor.onaudioprocess = function(event) {
+         if (!tx_mic_stream) return;
+         var input = webui_resample_to_16k(event.inputBuffer.getChannelData(0),
+            event.inputBuffer.sampleRate);
+         var pcm = new Int16Array(input.length);
+         for (var i = 0; i < input.length; i++) {
+            var value = Math.max(-1, Math.min(1, input[i]));
+            pcm[i] = value < 0 ? value * 32768 : value * 32767;
+         }
+         webui_append_tx_samples(pcm);
+      };
+      tx_mic_source.connect(tx_mic_processor);
+      tx_mic_processor.connect(tx_mic_silence);
+      tx_mic_silence.connect(txCtx.destination);
+      tx_pcm_pending = new Int16Array(0);
+      return true;
+   } catch (error) {
+      console.warn("Unable to start microphone capture:", error);
+      webui_stop_microphone();
+      return false;
+   }
+}
+
+function webui_stop_microphone() {
+   if (tx_mic_processor) tx_mic_processor.disconnect();
+   if (tx_mic_source) tx_mic_source.disconnect();
+   if (tx_mic_silence) tx_mic_silence.disconnect();
+   if (tx_mic_stream) tx_mic_stream.getTracks().forEach(function(track) { track.stop(); });
+   tx_mic_processor = null;
+   tx_mic_source = null;
+   tx_mic_silence = null;
+   tx_mic_stream = null;
+   tx_pcm_pending = new Int16Array(0);
 }
 
 // Flush the playback buffer then insert silence
@@ -266,8 +378,23 @@ function ws_send_capab_msg() {
    socket.send(JSON.stringify(capab_msg));
 }
 
-function webui_audio_set_codec(codec, isTx) {
+function webui_audio_codec_list() {
+   var codecs = audio_common_codecs.slice();
+   if (audio_opus_supported) codecs.push("opus");
+   if (audio_aac_supported) codecs.push("aacv");
+   if (audio_g722_supported) codecs.push("g722");
+   return codecs;
+}
+
+function webui_audio_set_codec(codec, isTx, target) {
    codec = String(codec || '').toLowerCase();
+   var direction = isTx ? 1 : 0;
+   if (codec === 'none') {
+      if (!target) audio_direction_disabled[direction] = true;
+      ws_send_codec_for_direction(codec, direction, target ?
+         (typeof mediaChanLookup === 'function' ? mediaChanLookup(target) : target) : null);
+      return true;
+   }
    if (audio_common_codecs.indexOf(codec) < 0 &&
        !(codec === 'g722' && audio_g722_supported) &&
        !(codec === 'opus' && audio_opus_supported) &&
@@ -276,12 +403,19 @@ function webui_audio_set_codec(codec, isTx) {
       return false;
    }
    if (isTx) {
+      if (audio_tx_codecs.indexOf(codec) < 0) {
+         console.warn("This browser cannot encode TX codec:", codec);
+         return false;
+      }
       audio_codec_tx = codec;
-      ws_send_tx_codec(codec);
+      ws_send_codec_for_direction(codec, direction, target ?
+         (typeof mediaChanLookup === 'function' ? mediaChanLookup(target) : target) : null);
    } else {
       audio_codec_rx = codec;
-      ws_send_rx_codec(codec);
+      ws_send_codec_for_direction(codec, direction, target ?
+         (typeof mediaChanLookup === 'function' ? mediaChanLookup(target) : target) : null);
    }
+   audio_direction_disabled[direction] = false;
    return true;
 }
 
@@ -358,12 +492,26 @@ function ws_send_tx_codec(codec) {
 // every subscribed audio channel in that direction, matching rrclient's
 // behavior for multi-VFO rigs.
 function ws_send_codec_for_direction(codec, direction, onlyUuid) {
+   if (onlyUuid && typeof onlyUuid !== 'string') onlyUuid = onlyUuid.uuid;
    if (typeof mediaChannels !== 'undefined') {
       Object.keys(mediaChannels).forEach(function(uuid) {
          var chan = mediaChannels[uuid];
          if (!chan || chan.subsystem !== 0x01 || chan.dir !== direction ||
-             !chan.subscribed || (onlyUuid && uuid !== onlyUuid) ||
-             chan.codec === codec || !window.socket || socket.readyState !== WebSocket.OPEN) {
+             (!chan.subscribed && !chan.disabled) || (onlyUuid && uuid !== onlyUuid) ||
+             (chan.codec === codec && chan.subscribed) ||
+             !window.socket || socket.readyState !== WebSocket.OPEN) {
+            return;
+         }
+         if (codec === 'none') {
+            if (chan.subscribed) {
+               socket.send(JSON.stringify({
+                  "msg": { "type": "media" },
+                  "media": { "cmd": "unsubscribe", "chan-uuid": uuid }
+               }));
+            }
+            chan.subscribed = false;
+            chan.disabled = true;
+            chan.pendingCodec = '';
             return;
          }
          socket.send(JSON.stringify({
@@ -374,6 +522,11 @@ function ws_send_codec_for_direction(codec, direction, onlyUuid) {
                "chan-uuid": uuid
             }
          }));
+         if (chan.disabled && !chan.subscribed) {
+            chan.pendingCodec = codec;
+            chan.subscribed = true;
+            subscribeMediaChannel(uuid);
+         }
       });
    }
    // There may be no matching channel yet during authentication.  The

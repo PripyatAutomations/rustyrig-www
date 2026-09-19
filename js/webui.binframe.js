@@ -104,3 +104,27 @@ function binframe_parse(buf) {
 function binframe_is_audio(f) {
    return f && f.subsystem === RR_BINFRAME_SUBSYS_AUDIO && f.payload_len > 0;
 }
+
+function binframe_build_audio(codec, direction, vfo, rig, stream, payload) {
+   if (!codec || codec.length !== 4 || !payload || payload.byteLength === 0 ||
+       payload.byteLength > RR_BINFRAME_MAX_PAYLOAD) {
+      return null;
+   }
+   var bytes = payload instanceof Uint8Array ? payload : new Uint8Array(payload);
+   var buf = new ArrayBuffer(RR_BINFRAME_HDR_LEN + bytes.byteLength);
+   var dv = new DataView(buf);
+   dv.setUint8(0, RR_BINFRAME_MAGIC0);
+   dv.setUint8(1, RR_BINFRAME_MAGIC1);
+   dv.setUint8(2, RR_BINFRAME_VERSION);
+   dv.setUint8(3, RR_BINFRAME_SUBSYS_AUDIO);
+   for (var i = 0; i < 4; i++) dv.setUint8(4 + i, codec.charCodeAt(i));
+   dv.setUint8(8, direction);
+   dv.setUint8(9, vfo === undefined ? 0 : vfo);
+   dv.setUint8(10, rig === undefined ? 0 : rig);
+   dv.setUint8(11, stream === undefined ? 0 : stream);
+   dv.setUint32(12, 0, false);
+   dv.setUint32(16, bytes.byteLength, false);
+   dv.setBigUint64(20, BigInt(Math.max(0, Math.floor(performance.now() * 1000))), false);
+   new Uint8Array(buf, RR_BINFRAME_HDR_LEN).set(bytes);
+   return buf;
+}

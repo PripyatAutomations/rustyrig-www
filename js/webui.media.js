@@ -18,7 +18,7 @@
 //
 "use strict";
 
-var mediaChannels = {};        // uuid -> { subsystem, dir, vfo, rig, descr, codec, subscribed }
+var mediaChannels = {};        // uuid -> { subsystem, dir, vfo, rig, descr, codec, subscribed, disabled }
 var mediaReady = false;
 
 function subscribeMediaChannel(uuid) {
@@ -70,7 +70,7 @@ function vfoLetterToId(letter) {
 // NOT assume the rig has a single VFO: multi-VFO RX rigs (Radioberry etc)
 // expose independent channels per VFO and the user can switch.
 function mediaTryAutosubscribe(entry) {
-   if (!mediaReady || !entry || entry.subscribed) {
+   if (!mediaReady || !entry || entry.subscribed || entry.disabled) {
       return;
    }
    // Only audio channels are auto-subscribed for now
@@ -108,6 +108,7 @@ function webui_parse_media_msg(msgObj) {
          entry.vfo = m.vfo;
          entry.rig = m.rig;
          entry.codec = m.codec || entry.codec || null;
+         if (typeof entry.disabled !== 'boolean') entry.disabled = false;
          entry.descr = m.descr || entry.descr || "";
          mediaChannels[uuid] = entry;
          console.log("Media channel available:", uuid, mediaChannels[uuid]);
@@ -119,6 +120,7 @@ function webui_parse_media_msg(msgObj) {
 
       if (u && mediaChannels[u]) {
          mediaChannels[u].subscribed = true;
+         mediaChannels[u].disabled = false;
          mediaChannels[u].stream = m.stream;
          if (m.codec) {
             mediaChannels[u].codec = m.codec;
@@ -148,6 +150,9 @@ window.webui_inits.push(function webui_media_init() {
       var prev = on_socket_open;
       on_socket_open = function() {
          mediaChannels = {};
+         if (typeof audio_direction_disabled !== "undefined") {
+            audio_direction_disabled = [false, false];
+         }
          mediaReady = true;
          if (prev) {
             prev();

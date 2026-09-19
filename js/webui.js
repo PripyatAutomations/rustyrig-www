@@ -103,6 +103,9 @@ function ws_connect() {
 
    /* NOTE: On error sorts this out for us */
    socket.onclose = function() {
+      if (typeof webui_stop_microphone === 'function') {
+         webui_stop_microphone();
+      }
       console.warn("WebSocket closed", {
          code: event.code,         // 1006 means abnormal close
          reason: event.reason,     // only non-empty if server sent one

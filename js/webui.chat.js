@@ -400,11 +400,9 @@ function parse_chat_cmd(e) {
                if (requested_codec === 'list') {
                   ChatBox.Append('<div><span class="notice">' +
                      (codec_direction_tx ? 'TX' : 'RX') + ' codecs: ' +
-                     audio_common_codecs.join(' ') +
-                     (audio_opus_supported ? ' opus' : '') +
-                     (audio_aac_supported ? ' aacv' : '') +
-                     (audio_g722_supported ? ' g722' : '') + '</span></div>');
-               } else if (!webui_audio_set_codec(requested_codec, codec_direction_tx)) {
+                     'NONE ' + webui_audio_codec_list().join(' ') + '</span></div>');
+               } else if (!webui_audio_set_codec(requested_codec, codec_direction_tx,
+                  args.length > 2 ? args[2] : null)) {
                   ChatBox.Append('<div><span class="error">Unsupported browser audio codec: ' +
                      requested_codec + '</span></div>');
                }
@@ -479,7 +477,7 @@ function parse_chat_cmd(e) {
 
                ChatBox.Append('<br/><div><span class="notice">*** AUDIO - Audio Settings</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/media&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Media channels: LIST | SUBSCRIBE &lt;uuid|#&gt; | UNSUBSCRIBE &lt;uuid|#&gt;</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/rxcodec [codec|LIST] | /txcodec [codec|LIST] - Select browser audio codec</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/rxcodec [codec|NONE|LIST] [uuid|#number] | /txcodec [codec|NONE|LIST] [uuid|#number] - Select browser audio codec</span></div>');
             ChatBox.Append('<div><span class="notice">&nbsp;/rxvol&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Set volume in % [vol]</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/rxmute | /rxunmute&nbsp;&nbsp;&nbsp;- Mute/Unmute RX audio</span></div>');
 

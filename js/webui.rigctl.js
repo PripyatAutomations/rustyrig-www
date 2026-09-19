@@ -87,9 +87,11 @@ function ptt_btn_init() {
       if (ptt_active === false) {
          state = "true";
          ptt_active = true;
+         if (typeof webui_start_microphone === "function") webui_start_microphone();
       } else {
          state = "false";
          ptt_active = false;
+         if (typeof webui_stop_microphone === "function") webui_stop_microphone();
       }
 
       var msg = {
