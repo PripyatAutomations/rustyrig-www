@@ -18,7 +18,7 @@
 //
 "use strict";
 
-var mediaChannels = {};        // uuid -> { subsystem, dir, vfo, rig, descr, codec, subscribed, disabled }
+var mediaChannels = {};        // uuid -> { name, subsystem, dir, vfo, rig, descr, codec, subscribed, disabled }
 var mediaReady = false;
 
 function subscribeMediaChannel(uuid) {
@@ -127,6 +127,7 @@ function webui_parse_media_msg(msgObj) {
          entry.dir = m.dir;
          entry.vfo = m.vfo;
          entry.rig = m.rig;
+         entry.name = m.name || entry.name || "";
          entry.codec = m.codec || entry.codec || null;
          if (typeof entry.disabled !== 'boolean') entry.disabled = false;
          entry.descr = m.descr || entry.descr || "";
@@ -208,7 +209,7 @@ function mediaFormatChan(idx, chan) {
              chan.subsystem === 0x02 ? 'video' :
              ('sub-' + chan.subsystem);
    var dir = chan.dir === 0 ? 'rx' : chan.dir === 1 ? 'tx' : 'n/a';
-   return '#' + idx + ' ' + chan.uuid + ' [' + sub + ' ' + dir +
+   return '#' + idx + ' ' + (chan.name || chan.uuid) + ' [' + chan.uuid + '; ' + sub + ' ' + dir +
           ' vfo:' + (chan.vfo === 0xFF ? '*' : String.fromCharCode(65 + chan.vfo)) +
           ' rig:' + (chan.rig === 0xFF ? '*' : chan.rig) + ']' +
           ' codec: ' + (chan.codec || '(none)') +
