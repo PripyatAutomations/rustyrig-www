@@ -74,6 +74,21 @@ button {
    cursor: pointer;
 }
 
+/* Keep the PTT control from changing the layout when its label changes
+ * between OFF, PENDING, and TX:username. */
+button.rig-ptt {
+   width: 11em;
+   min-width: 11em;
+   box-sizing: border-box;
+   white-space: nowrap;
+   text-align: center;
+}
+
+.ptt-locked {
+   pointer-events: none;
+   opacity: 0.65;
+}
+
 .red {
    color: Maroon;
 }

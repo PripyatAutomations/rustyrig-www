@@ -631,6 +631,7 @@ const UserCache = {
       };
       console.log("UC.add: name:", user.name, "sessions:", user.sessions);
       cul_render();
+      if (typeof ptt_button_apply === 'function') ptt_button_apply();
    },
 
    remove(name) {
@@ -645,6 +646,7 @@ const UserCache = {
       }
 
       cul_render();
+      if (typeof ptt_button_apply === 'function') ptt_button_apply();
    },
 
    update(user) {
