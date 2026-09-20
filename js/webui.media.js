@@ -86,6 +86,19 @@ function mediaTryAutosubscribe(entry) {
    subscribeMediaChannel(entry.uuid);
 }
 
+// The server chooses the initial codec when the first subscriber joins. Do
+// not send a codec request here; only reflect the confirmed stream format.
+function mediaApplyConfirmedCodec(entry) {
+   if (!entry || !entry.codec || entry.vfo !== vfoLetterToId(activeVfoId())) {
+      return;
+   }
+   if (entry.dir === 1 && typeof audio_codec_tx !== 'undefined') {
+      audio_codec_tx = entry.codec;
+   } else if (entry.dir === 0 && typeof audio_codec_rx !== 'undefined') {
+      audio_codec_rx = entry.codec;
+   }
+}
+
 // Keep the automatic audio pair aligned with the VFO shown by the UI. An
 // explicitly selected non-active channel remains untouched; only channels
 // that were auto-subscribed for another VFO are released here.
@@ -133,6 +146,7 @@ function webui_parse_media_msg(msgObj) {
          entry.descr = m.descr || entry.descr || "";
          mediaChannels[uuid] = entry;
          console.log("Media channel available:", uuid, mediaChannels[uuid]);
+         mediaApplyConfirmedCodec(entry);
          mediaTryAutosubscribe(mediaChannels[uuid]);
       }
       return true;
@@ -146,14 +160,7 @@ function webui_parse_media_msg(msgObj) {
          if (m.codec) {
             mediaChannels[u].codec = m.codec;
          }
-         if (typeof ws_send_codec_for_direction === "function" &&
-             mediaChannels[u].subsystem === 0x01 &&
-             (!m.codec || mediaChannels[u].codec !==
-                (mediaChannels[u].dir === 1 ? audio_codec_tx : audio_codec_rx))) {
-            ws_send_codec_for_direction(
-               mediaChannels[u].dir === 1 ? audio_codec_tx : audio_codec_rx,
-               mediaChannels[u].dir, u);
-         }
+         mediaApplyConfirmedCodec(mediaChannels[u]);
       }
       console.log("Subscribed to media channel", u, "stream", m.stream);
       return true;

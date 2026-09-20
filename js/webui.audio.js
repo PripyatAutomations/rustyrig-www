@@ -415,11 +415,9 @@ function webui_audio_set_codec(codec, isTx, target) {
          console.warn("This browser cannot encode TX codec:", codec);
          return false;
       }
-      audio_codec_tx = codec;
       ws_send_codec_for_direction(codec, direction, target ?
          (typeof mediaChanLookup === 'function' ? mediaChanLookup(target) : target) : null);
    } else {
-      audio_codec_rx = codec;
       ws_send_codec_for_direction(codec, direction, target ?
          (typeof mediaChanLookup === 'function' ? mediaChanLookup(target) : target) : null);
    }
