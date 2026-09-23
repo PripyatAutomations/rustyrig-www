@@ -75,10 +75,58 @@ class WebUiChat {
       this.output = $(output);
       this.scrollback_max_lines = 1000;
       this.scrollback_purge_lines = 100;
+      this.rooms = Object.create(null);
+      this.current_room = null;
+   }
+
+   room_name(room) {
+      return (room && String(room).length) ? String(room) :
+         (webui_authoritative_room || '#rig');
+   }
+
+   ensure_room(room, select) {
+      room = this.room_name(room);
+      if (!Object.prototype.hasOwnProperty.call(this.rooms, room)) {
+         this.rooms[room] = '';
+         const tab = $('<button type="button"></button>')
+            .text(room).attr('data-room', room);
+         tab.on('click', () => this.SwitchRoom(room));
+         $('#chat-room-tabs').append(tab);
+      }
+      if (select || this.current_room === null) {
+         this.SwitchRoom(room);
+      }
+      return room;
+   }
+
+   SwitchRoom(room) {
+      room = this.ensure_room(room, false);
+      this.current_room = room;
+      this.output.html(this.rooms[room] || '');
+      $('#chat-room-tabs button').each(function() {
+         $(this).toggleClass('active', $(this).attr('data-room') === room);
+      });
+      this.output.scrollTop(this.output[0].scrollHeight);
+      return room;
+   }
+
+   RemoveRoom(room) {
+      if (!room || !Object.prototype.hasOwnProperty.call(this.rooms, room)) return;
+      delete this.rooms[room];
+      $('#chat-room-tabs button').filter(function() {
+         return $(this).attr('data-room') === room;
+      }).remove();
+      if (this.current_room === room) {
+         const next = Object.keys(this.rooms)[0] || webui_authoritative_room || '#rig';
+         this.ensure_room(next, true);
+      }
    }
 
    // Add a message to the chat
-   Append(msg) {
+   Append(msg, room) {
+      room = this.ensure_room(room, false);
+      this.rooms[room] += msg;
+      if (room !== this.current_room) return;
       // limit scrollback to 1000 items
       const $messages = $('#chat-box').children();
 
@@ -89,6 +137,7 @@ class WebUiChat {
 
       // Add the message to the chatbox
       this.output.append(msg);
+      this.rooms[room] = this.output.html();
 
       // A few ms delay before scrolling to improve smoothness
       setTimeout(function () {
@@ -98,6 +147,7 @@ class WebUiChat {
 
    Clear() {
       this.output.empty();
+      if (this.current_room) this.rooms[this.current_room] = '';
 
       setTimeout(function () {
          $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
@@ -105,13 +155,19 @@ class WebUiChat {
    }
 }
 
+var webui_authoritative_room = null;
+
 if (!window.webui_inits) {
    window.webui_inits = [];
 }
 window.webui_inits.push(function webui_chat_init() { chat_init(); });
 
 function chatbox_clear() {
-   $('#chat-box').empty();
+   if (typeof ChatBox !== 'undefined' && ChatBox.Clear) {
+      ChatBox.Clear();
+   } else {
+      $('#chat-box').empty();
+   }
 }
 
 function chat_init() {
@@ -170,7 +226,10 @@ function parse_userinfo_reply(message) {
 //    console.log("parse_userinfo_reply:", message);
     if (typeof message !== 'undefined') {
        // Server sends the PTT state as talk.tx (see srv.chat.c: ws_send_userinfo)
-       UserCache.update({ name: message.talk.user, privs: message.talk.privs, muted: parse_bool_field(message.talk.muted), ptt: parse_bool_field(message.talk.tx !== undefined ? message.talk.tx : message.talk.ptt), sessions: message.talk.sessions });
+       UserCache.update({ name: message.talk.user, room: message.talk.room || webui_authoritative_room,
+          privs: message.talk.privs, muted: parse_bool_field(message.talk.muted),
+          ptt: parse_bool_field(message.talk.tx !== undefined ? message.talk.tx : message.talk.ptt),
+          sessions: message.talk.sessions });
     }
 
     return false;
@@ -418,6 +477,30 @@ function parse_chat_cmd(e) {
             case 'chat':
                wmSwitchTab('chat');
                break;
+            case 'list':
+            case 'join':
+            case 'part':
+            case 'chan':
+               if (command.toLowerCase() === 'join' && args.length < 2) {
+                  ChatBox.Append('<div><span class="error">Usage: /join #room</span></div>');
+                  break;
+               }
+               if (command.toLowerCase() === 'part' && args.length < 2) {
+                  ChatBox.Append('<div><span class="error">Usage: /part #room</span></div>');
+                  break;
+               }
+               if (command.toLowerCase() === 'chan' && args.length < 2) {
+                  ChatBox.Append('<div><span class="error">Usage: /chan vfo|delete ...</span></div>');
+                  break;
+               }
+               if (command.toLowerCase() === 'list') {
+                  args_obj = {};
+               } else if (command.toLowerCase() === 'join' || command.toLowerCase() === 'part') {
+                  args_obj = { target: args[1] };
+               } else {
+                  args_obj = { data: args.slice(1).join(' ') };
+               }
+               break;
             case 'cfg':
             case 'config':
                wmSwitchTab('cfg');
@@ -538,6 +621,10 @@ function parse_chat_cmd(e) {
                ChatBox.Append('<div><span class="notice">&nbsp;/whois&nbsp;&nbsp;&nbsp;- Show user information: &lt;user&gt;</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/qrz&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Look up a callsign: &lt;callsign&gt; [NOCACHE]</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/grid&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Look up a grid square or coordinates: &lt;grid|lat,lon&gt;</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/list&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- List available rooms</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/join #room&nbsp;&nbsp;- Join a room</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/part #room&nbsp;&nbsp;- Leave a room</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/chan ...&nbsp;&nbsp;&nbsp;&nbsp;- Manage rooms and room/VFO mappings</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/quit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Disconnect</span></div>');
 
                ChatBox.Append('<br/><div><span class="notice">*** AUDIO - Audio Settings</span></div>');
@@ -668,6 +755,9 @@ function parse_chat_cmd(e) {
                "data": message
             }
          };
+         if (ChatBox.current_room && ChatBox.current_room !== webui_authoritative_room) {
+            msgObj.talk.target = ChatBox.current_room;
+         }
          socket.send(JSON.stringify(msgObj));
       }
 
@@ -692,7 +782,8 @@ const UserCache = {
          ...(user.hasOwnProperty('ptt')   && { ptt:   user.ptt }),
          ...(user.hasOwnProperty('muted') && { muted: user.muted }),
          ...(user.hasOwnProperty('privs') && { privs: user.privs }),
-         ...(user.hasOwnProperty('sessions') && { sessions: user.sessions })
+         ...(user.hasOwnProperty('sessions') && { sessions: user.sessions }),
+         room: user.room || webui_authoritative_room || '#rig'
       };
       console.log("UC.add: name:", user.name, "sessions:", user.sessions);
       cul_render();
@@ -726,15 +817,22 @@ const UserCache = {
       if ('privs' in user) existing.privs = user.privs;
       if ('muted' in user) existing.muted = user.muted;
       if ('sessions' in user) existing.sessions = user.sessions;
+      if ('room' in user && user.room) existing.room = user.room;
       cul_render();
    },
 
    get(name) {
-      return this.users[name] || null;
+      const entry = this.users[name] || null;
+      if (!entry || typeof ChatBox === 'undefined' || !ChatBox.current_room ||
+          entry.room === ChatBox.current_room) return entry;
+      return null;
    },
 
    get_all() {
-      return Object.entries(this.users).map(([name, props]) => ({ name, ...props }));
+      return Object.entries(this.users)
+         .filter(([, props]) => typeof ChatBox === 'undefined' || !ChatBox.current_room ||
+            props.room === ChatBox.current_room)
+         .map(([name, props]) => ({ name, ...props }));
    },
 
    sessions(name) {
@@ -822,15 +920,46 @@ function handle_paste(e) {
 function webui_parse_chat_msg(msgObj) {
    var cmd = msgObj.talk.cmd;
    var message = msgObj.talk.data;
+   var targetRoom = msgObj.talk.target || msgObj.talk.room || null;
+   var append = function(html) { ChatBox.Append(html, targetRoom); };
+
+   /* PARITY: rustyrig-fw/rrclient/events.c:rrclient_handle_talk_msg
+    * The server now tags join/chat events with their room.  Keep a small
+    * client-side room model so side-room traffic and private targets do not
+    * collapse into the rig conversation. */
+   if (targetRoom) {
+      ChatBox.ensure_room(targetRoom, false);
+   }
+   if (cmd === 'join' && msgObj.room && msgObj.room['has-vfos'] && targetRoom) {
+      webui_authoritative_room = targetRoom;
+      ChatBox.ensure_room(targetRoom, true);
+   }
+
+   if (cmd === 'room-list') {
+      append('<div><span class="notice">Available rooms: ' +
+         webui_escape_html(msgObj.talk.rooms || '(none)') + '</span></div>');
+      return;
+   }
+   if (cmd === 'room-vfo-list') {
+      append('<div><span class="notice">Room/VFO mappings: ' +
+         webui_escape_html(msgObj.talk.vfos || '(none)') + '</span></div>');
+      return;
+   }
+   if (cmd === 'chan-deleted') {
+      if (targetRoom) ChatBox.RemoveRoom(targetRoom);
+      ChatBox.Append('<div><span class="notice">Room removed: ' +
+         webui_escape_html(targetRoom || '(unknown)') + '</span></div>');
+      return;
+   }
 
    // keep msg up top as it's the most frequently encountered command
    // XXX: Maybe we should keep a counter of received commands so we can optimize this a bit later??
    var msg_ts = msg_timestamp(msgObj.msg.ts);
 
    if (cmd === 'replay-start') {
-      ChatBox.Append('<div>' + msg_ts + ' *** Chat replay Start ***</div>');
+      append('<div>' + msg_ts + ' *** Chat replay Start ***</div>');
    } else if (cmd === 'replay-complete' || cmd === 'replay-completed') {
-      ChatBox.Append('<div>' + msg_ts + ' *** Chat replay End ***</div>');
+      append('<div>' + msg_ts + ' *** Chat replay End ***</div>');
    } else if (cmd === 'msg' && message) {
       var sender = msgObj.talk.from;
       var msg_type = msgObj.talk.msg_type;
@@ -842,15 +971,15 @@ function webui_parse_chat_msg(msgObj) {
          // Don't play a bell or set highlight on SelfMsgs
          if (sender === auth_user) {
             if (msg_type === 'action') {
-               ChatBox.Append('<div>' + msg_ts + ' <span class="chat-my-msg-prefix">&nbsp;==>&nbsp;</span>***&nbsp;' + sender + '&nbsp;***&nbsp;<span class="chat-my-msg">' + message + '</span></div>');
+               append('<div>' + msg_ts + ' <span class="chat-my-msg-prefix">&nbsp;==>&nbsp;</span>***&nbsp;' + sender + '&nbsp;***&nbsp;<span class="chat-my-msg">' + message + '</span></div>');
             } else if (msg_type === 'pub') {
-               ChatBox.Append('<div>' + msg_ts + ' <span class="chat-my-msg-prefix">&nbsp;==>&nbsp;</span><span class="chat-my-msg">' + message + '</span></div>');
+               append('<div>' + msg_ts + ' <span class="chat-my-msg-prefix">&nbsp;==>&nbsp;</span><span class="chat-my-msg">' + message + '</span></div>');
             }
          } else {
             if (msg_type === 'action') {
-               ChatBox.Append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">&nbsp;' + sender + '&nbsp;</span>***&nbsp;<span class="chat-msg">' + message + '</span></div>');
+               append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">&nbsp;' + sender + '&nbsp;</span>***&nbsp;<span class="chat-msg">' + message + '</span></div>');
             } else if (msg_type === 'pub') {
-               ChatBox.Append('<div>' + msg_ts + ' <span class="chat-msg-prefix">&lt;' + sender + '&gt;&nbsp;</span><span class="chat-msg">' + message + '</span></div>');
+               append('<div>' + msg_ts + ' <span class="chat-msg-prefix">&lt;' + sender + '&gt;&nbsp;</span><span class="chat-msg">' + message + '</span></div>');
             }
 
             play_notify_bell();
@@ -861,11 +990,11 @@ function webui_parse_chat_msg(msgObj) {
          message = msg_create_links(message);
 
          if (msg_type === 'replay-action') {
-            ChatBox.Append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">&nbsp;' + sender + '&nbsp;</span>***&nbsp;<span class="chat-msg">' + message + '</span></div>');
+            append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">&nbsp;' + sender + '&nbsp;</span>***&nbsp;<span class="chat-msg">' + message + '</span></div>');
          } else if (msg_type === 'replay-pub') {
-            ChatBox.Append('<div>' + msg_ts + ' <span class="chat-msg-prefix">&lt;' + sender + '&gt;&nbsp;</span><span class="chat-msg">' + message + '</span></div>');
+            append('<div>' + msg_ts + ' <span class="chat-msg-prefix">&lt;' + sender + '&gt;&nbsp;</span><span class="chat-msg">' + message + '</span></div>');
          } else {  // replay-privmsg / replay-priv
-            ChatBox.Append('<div>' + msg_ts + ' <span class="chat-msg-prefix">*' + sender + '*&nbsp;</span><span class="chat-msg">' + message + '</span></div>');
+            append('<div>' + msg_ts + ' <span class="chat-msg-prefix">*' + sender + '*&nbsp;</span><span class="chat-msg">' + message + '</span></div>');
          }
          set_highlight("chat");
          // XXX: Update the window title to show a pending message
@@ -887,12 +1016,12 @@ function webui_parse_chat_msg(msgObj) {
 
          var sessions = msgObj.talk.sessions;
          if (typeof sessions !== 'undefined') {
-            UserCache.add({ name: user, ptt: ptt_state, muted: muted_state, privs: privs, sessions: sessions });
+            UserCache.add({ name: user, room: targetRoom, ptt: ptt_state, muted: muted_state, privs: privs, sessions: sessions });
          } else {
-            UserCache.add({ name: user, ptt: ptt_state, muted: muted_state, privs: privs });
+            UserCache.add({ name: user, room: targetRoom, ptt: ptt_state, muted: muted_state, privs: privs });
          }
 
-         ChatBox.Append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + nl + '&nbsp;</span><span class="chat-msg">connected to the radio</span>&nbsp;***</div>');
+         append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + nl + '&nbsp;</span><span class="chat-msg">connected to the radio</span>&nbsp;***</div>');
          // Play join (door open) sound if the bell button is checked
          if ($('#bell-btn').data('checked')) {
             if (!(user === auth_user)) {
@@ -943,7 +1072,7 @@ function webui_parse_chat_msg(msgObj) {
             }
          }
 
-         ChatBox.Append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + user + '&nbsp;</span><span class="chat-msg">disconnected: ' + reason + '</span>&nbsp;***</div>');
+         append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + user + '&nbsp;</span><span class="chat-msg">disconnected: ' + reason + '</span>&nbsp;***</div>');
       } else {
          console.log("got %s for undefined user, ignoring", cmd);
       }
@@ -969,7 +1098,7 @@ function webui_parse_chat_msg(msgObj) {
 
       const who_ts = msg_timestamp(msgObj.msg.ts);
       const who_line = (text, cls) => {
-         ChatBox.Append(`<div>${who_ts}&nbsp;<span class="chat-msg-prefix">***&nbsp;</span><span class="${cls || 'chat-msg'}">${text}</span></div>`);
+         append(`<div>${who_ts}&nbsp;<span class="chat-msg-prefix">***&nbsp;</span><span class="${cls || 'chat-msg'}">${text}</span></div>`);
       };
 
       who_line(`Whois for <b>${username}</b>`, 'notice');
