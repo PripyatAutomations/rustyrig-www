@@ -61,12 +61,15 @@ function chat_parameter_candidates(beforeCaret) {
    const arg = tokens.length;
    const first = (tokens[1] || '').toUpperCase();
    let values = [];
-   if (['/whois', '/kick', '/ban', '/mute', '/unmute'].includes(command)) {
+   if (['/whois', '/kick', '/ban', '/mute', '/unmute', '/msg', '/query'].includes(command)) {
       if (arg === 1) values = getCULNames();
    } else if (command === '/quota') {
       if (arg === 1) values = ['LIST', 'SHOW', 'ADD', 'RESET', 'SET', 'HELP'];
       if (arg === 1 || ['SHOW', 'RESET'].includes(first) ||
           (arg === 2 && ['ADD', 'SET'].includes(first))) values = values.concat(getCULNames());
+   } else if (command === '/room') {
+      if (arg === 1) values = ['LIST', 'REMOVE', 'VFO'];
+      else if (arg === 2 && first === 'VFO') values = ['ADD', 'LIST', 'REMOVE'];
    } else if (command === '/media') {
       if (arg === 1) values = ['LIST', 'SUBSCRIBE', 'UNSUBSCRIBE', 'SUB', 'UNSUB'];
       if (arg === 2 && ['SUBSCRIBE', 'UNSUBSCRIBE', 'SUB', 'UNSUB'].includes(first)) {

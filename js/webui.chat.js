@@ -448,6 +448,10 @@ function parse_chat_cmd(e) {
    var message = $('#chat-input').val().trim();
    var chat_msg = false;
    var msg_type = "invalid";
+   var private_target = null;
+   // Each input is independent.  Do not let an argument object from a
+   // previous command turn /query or /msg into an unrelated server command.
+   var args_obj = null;
 
    // Determine if the message is a command, otherwise send it off as chat
    if (message) {
@@ -477,26 +481,51 @@ function parse_chat_cmd(e) {
             case 'chat':
                wmSwitchTab('chat');
                break;
+            case 'query':
+               if (args.length < 2 || !args[1]) {
+                  ChatBox.Append('<div><span class="error">Usage: /query user</span></div>');
+               } else {
+                  ChatBox.ensure_room(args[1], true);
+               }
+               break;
+            case 'msg':
+               if (args.length < 3 || !args[1]) {
+                  ChatBox.Append('<div><span class="error">Usage: /msg user message</span></div>');
+               } else {
+                  private_target = args[1];
+                  ChatBox.ensure_room(private_target, true);
+                  message = args.slice(2).join(' ');
+                  chat_msg = true;
+                  msg_type = "priv";
+               }
+               break;
             case 'list':
             case 'join':
             case 'part':
-            case 'chan':
+            case 'room':
                if (command.toLowerCase() === 'join' && args.length < 2) {
                   ChatBox.Append('<div><span class="error">Usage: /join #room</span></div>');
                   break;
                }
-               if (command.toLowerCase() === 'part' && args.length < 2) {
-                  ChatBox.Append('<div><span class="error">Usage: /part #room</span></div>');
+               if (command.toLowerCase() === 'part' && args.length < 2 &&
+                   !ChatBox.current_room) {
+                  ChatBox.Append('<div><span class="error">Usage: /part #room (select a room tab or provide the room)</span></div>');
                   break;
                }
-               if (command.toLowerCase() === 'chan' && args.length < 2) {
-                  ChatBox.Append('<div><span class="error">Usage: /chan vfo|delete ...</span></div>');
+               if (command.toLowerCase() === 'part' && args.length < 2 &&
+                   ChatBox.current_room.charAt(0) !== '#' &&
+                   ChatBox.current_room.charAt(0) !== '&') {
+                  ChatBox.RemoveRoom(ChatBox.current_room);
+                  break;
+               }
+               if (command.toLowerCase() === 'room' && args.length < 2) {
+                  ChatBox.Append('<div><span class="error">Usage: /room list|remove|vfo ...</span></div>');
                   break;
                }
                if (command.toLowerCase() === 'list') {
                   args_obj = {};
                } else if (command.toLowerCase() === 'join' || command.toLowerCase() === 'part') {
-                  args_obj = { target: args[1] };
+                  args_obj = { target: args[1] || ChatBox.current_room };
                } else {
                   args_obj = { data: args.slice(1).join(' ') };
                }
@@ -619,12 +648,14 @@ function parse_chat_cmd(e) {
                ChatBox.Append('<div><span class="notice">&nbsp;/me&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Show message as an ACTION in chat</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/menu&nbsp;&nbsp;&nbsp;&nbsp;- Show the user menu &lt;user&gt;</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/whois&nbsp;&nbsp;&nbsp;- Show user information: &lt;user&gt;</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/query user&nbsp;- Open a private message tab</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/msg user text - Send a private message</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/qrz&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Look up a callsign: &lt;callsign&gt; [NOCACHE]</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/grid&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Look up a grid square or coordinates: &lt;grid|lat,lon&gt;</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/list&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- List available rooms</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/join #room&nbsp;&nbsp;- Join a room</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/part #room&nbsp;&nbsp;- Leave a room</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/chan ...&nbsp;&nbsp;&nbsp;&nbsp;- Manage rooms and room/VFO mappings</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/room list|remove|vfo ... - Manage rooms and room/VFO mappings</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/quit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Disconnect</span></div>');
 
                ChatBox.Append('<br/><div><span class="notice">*** AUDIO - Audio Settings</span></div>');
@@ -757,7 +788,12 @@ function parse_chat_cmd(e) {
          };
          if (ChatBox.current_room && ChatBox.current_room !== webui_authoritative_room) {
             msgObj.talk.target = ChatBox.current_room;
+            if (ChatBox.current_room.charAt(0) !== '#' &&
+                ChatBox.current_room.charAt(0) !== '&') {
+               msgObj.talk.msg_type = 'priv';
+            }
          }
+         if (private_target) msgObj.talk.target = private_target;
          socket.send(JSON.stringify(msgObj));
       }
 
@@ -920,7 +956,13 @@ function handle_paste(e) {
 function webui_parse_chat_msg(msgObj) {
    var cmd = msgObj.talk.cmd;
    var message = msgObj.talk.data;
-   var targetRoom = msgObj.talk.target || msgObj.talk.room || null;
+   var rawTarget = msgObj.talk.target || msgObj.talk.room || null;
+   var privateMsg = msgObj.talk.msg_type === 'priv' ||
+      msgObj.talk.msg_type === 'privmsg';
+   // The server echoes a private message to both endpoints with the same
+   // target.  Show it in the counterpart's tab at the receiving endpoint.
+   var targetRoom = privateMsg && msgObj.talk.from &&
+      msgObj.talk.from !== auth_user ? msgObj.talk.from : rawTarget;
    var append = function(html) { ChatBox.Append(html, targetRoom); };
 
    /* PARITY: rustyrig-fw/rrclient/events.c:rrclient_handle_talk_msg
@@ -941,11 +983,12 @@ function webui_parse_chat_msg(msgObj) {
       return;
    }
    if (cmd === 'room-vfo-list') {
+      var mappings = webui_escape_html(msgObj.talk.vfos || '(none)').replace(/\n/g, '<br>');
       append('<div><span class="notice">Room/VFO mappings: ' +
-         webui_escape_html(msgObj.talk.vfos || '(none)') + '</span></div>');
+         mappings + '</span></div>');
       return;
    }
-   if (cmd === 'chan-deleted') {
+   if (cmd === 'room-removed') {
       if (targetRoom) ChatBox.RemoveRoom(targetRoom);
       ChatBox.Append('<div><span class="notice">Room removed: ' +
          webui_escape_html(targetRoom || '(unknown)') + '</span></div>');
@@ -985,6 +1028,15 @@ function webui_parse_chat_msg(msgObj) {
             play_notify_bell();
             set_highlight("chat");
             // XXX: Update the window title to show a pending message
+         }
+      } else if (msg_type === "priv" || msg_type === "privmsg") {
+         message = msg_create_links(message);
+         append('<div>' + msg_ts + ' <span class="chat-msg-prefix">*' +
+            webui_escape_html(sender || '') + '*&nbsp;</span><span class="chat-msg">' +
+            message + '</span></div>');
+         if (sender !== auth_user) {
+            play_notify_bell();
+            set_highlight("chat");
          }
       } else if (msg_type === "replay-action" || msg_type == "replay-pub" || msg_type == 'replay-privmsg' || msg_type == 'replay-priv') {
          message = msg_create_links(message);
