@@ -519,7 +519,7 @@ function parse_chat_cmd(e) {
                   break;
                }
                if (command.toLowerCase() === 'room' && args.length < 2) {
-                  ChatBox.Append('<div><span class="error">Usage: /room list|remove|vfo ...</span></div>');
+                  ChatBox.Append('<div><span class="error">Usage: /room list|#room add|remove|vfo ...</span></div>');
                   break;
                }
                if (command.toLowerCase() === 'list') {
@@ -655,7 +655,7 @@ function parse_chat_cmd(e) {
                ChatBox.Append('<div><span class="notice">&nbsp;/list&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- List available rooms</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/join #room&nbsp;&nbsp;- Join a room</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/part #room&nbsp;&nbsp;- Leave a room</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/room list|remove|vfo ... - Manage rooms and room/VFO mappings</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/room list|#room add|remove|vfo ... - Manage rooms and room/VFO mappings</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/quit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Disconnect</span></div>');
 
                ChatBox.Append('<br/><div><span class="notice">*** AUDIO - Audio Settings</span></div>');

@@ -68,8 +68,9 @@ function chat_parameter_candidates(beforeCaret) {
       if (arg === 1 || ['SHOW', 'RESET'].includes(first) ||
           (arg === 2 && ['ADD', 'SET'].includes(first))) values = values.concat(getCULNames());
    } else if (command === '/room') {
-      if (arg === 1) values = ['LIST', 'REMOVE', 'VFO'];
-      else if (arg === 2 && first === 'VFO') values = ['ADD', 'LIST', 'REMOVE'];
+      if (arg === 1) values = ['LIST', '#'];
+      else if (arg === 2 && first.startsWith('#')) values = ['ADD', 'REMOVE', 'VFO'];
+      else if (arg === 3 && tokens[2] && tokens[2].toUpperCase() === 'VFO') values = ['ADD', 'LIST', 'REMOVE'];
    } else if (command === '/media') {
       if (arg === 1) values = ['LIST', 'SUBSCRIBE', 'UNSUBSCRIBE', 'SUB', 'UNSUB'];
       if (arg === 2 && ['SUBSCRIBE', 'UNSUBSCRIBE', 'SUB', 'UNSUB'].includes(first)) {
