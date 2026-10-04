@@ -207,6 +207,7 @@ function webui_parse_auth_msg(msgObj) {
          }
 
          logged_in = true;
+         rrObjectsSubscribe();
 
          // The browser advertises the codecs it can decode.  RX and TX are
          // negotiated independently, as in rrclient.

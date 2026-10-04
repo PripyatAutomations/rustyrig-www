@@ -1,0 +1,25 @@
+const assert = require('node:assert/strict');
+const { RRObjectCache } = require('../js/webui.objects.js');
+const cache = new RRObjectCache();
+const id = n => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+const msg = (type, body, seq) => ({msg: {type}, [type]: body, stream: {epoch: id(0), seq: String(seq)}});
+assert(cache.apply({...msg('object', {cmd: 'begin'}, 0), request: {id: 'snapshot'}}));
+for (const [uuid, type, owner, alias] of [[3,'vfo',1,'A'],[4,'vfo',2,'A'],[2,'rig',0,'rig1'],[1,'rig',0,'rig0'],[0,'node',null,'node']])
+   assert(cache.apply(msg('object', {cmd:'added', uuid:id(uuid), type, owner:owner === null ? undefined : id(owner), alias}, 1)));
+const state = (seq, version, value) => ({...msg('property', {cmd:'changed', name:'frequency', type:'integer', observed:true, known:true, available:true, value, version:String(version)}, seq), target:id(4)});
+assert(cache.apply(state(3, 2, 7074000)));
+assert(cache.apply(state(2, 1, 145000000)));
+assert.equal(cache.objects.get(id(4)).properties.get('frequency').state.value, 7074000);
+assert(cache.apply({...msg('object', {cmd:'end'}, 4), request:{id:'snapshot'}}));
+assert(cache.ready && cache.dump().length === 5);
+assert(cache.apply(msg('object', {cmd:'removed', uuid:id(2)}, 5)));
+assert(cache.objects.get(id(4)).removed);
+assert(cache.apply(msg('object', {cmd:'added', uuid:id(2), type:'rig', owner:id(0), alias:'rig1'}, 6)));
+assert(cache.apply(msg('object', {cmd:'added', uuid:id(4), type:'vfo', owner:id(2), alias:'A'}, 7)));
+assert(cache.apply(state(4, 100, 123)));
+assert(!cache.objects.get(id(4)).properties.has('frequency'));
+assert(cache.apply(state(8, 1, 146000000)));
+assert.equal(cache.objects.get(id(4)).properties.get('frequency').state.value, 146000000);
+assert(cache.apply(msg('object', {cmd:'added', uuid:id(4), type:'vfo', owner:id(2), alias:'A'}, 3)));
+assert(!cache.objects.get(id(4)).removed);
+console.log('PASS: browser UUID object cache, ownership, versions, and removal');

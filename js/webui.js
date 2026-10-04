@@ -103,6 +103,7 @@ function ws_connect() {
 
    /* NOTE: On error sorts this out for us */
    socket.onclose = function() {
+      rrObjectCache.clear();
       if (typeof webui_stop_microphone === 'function') {
          webui_stop_microphone();
       }
@@ -179,7 +180,9 @@ function webui_handle_ws_msg(event) {
       try {
          var msgObj = JSON.parse(msgData);
 
-         if (msgObj.syslog) {		// Handle syslog messages
+         if (msgObj.msg?.type === 'object' || msgObj.msg?.type === 'property') {
+            if (!rrObjectCache.apply(msgObj)) console.warn('Invalid object/property message');
+         } else if (msgObj.syslog) {		// Handle syslog messages
             syslog_append(msgObj);
          } else if (msgObj.error) {
             console.log("ERR:", msgObj);
