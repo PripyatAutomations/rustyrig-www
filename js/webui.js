@@ -186,7 +186,8 @@ function webui_handle_ws_msg(event) {
          var msgObj = JSON.parse(msgData);
 
          if (msgObj.msg?.type === 'object' || msgObj.msg?.type === 'property') {
-            if (!rrObjectCache.apply(msgObj)) console.warn('Invalid object/property message');
+            if (rrInventoryMessage(msgObj)) { /* one-shot inventory */ }
+            else if (!rrObjectCache.apply(msgObj)) console.warn('Invalid object/property message');
             else if (typeof webui_refresh_room_vfo === 'function') webui_refresh_room_vfo();
          } else if (msgObj.syslog) {		// Handle syslog messages
             syslog_append(msgObj);

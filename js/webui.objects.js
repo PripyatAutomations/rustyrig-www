@@ -107,3 +107,46 @@ function rrObjectsSubscribe() {
 // Browser-console diagnostic: rrObjectsDump().
 function rrObjectsDump() { const objects = rrObjectCache.dump(); console.log(objects); return objects; }
 if (typeof module !== 'undefined') module.exports = { RRObjectCache };
+
+// PARITY: rrclient/objects.events.c. Inventory is a one-shot view; it does
+// not replace, clear, or subscribe the UUID property cache.
+var rrInventoryRequest = 0, rrInventoryId = '';
+function rrInventoryLine(entry) {
+   const depth = Number(entry.depth);
+   if (!Number.isInteger(depth) || depth < 0 || depth > 4) return null;
+   const fields = ['uuid', 'room', 'backend', 'frequency', 'codec', 'direction', 'subsystem', 'coordinates', 'source', 'service', 'state', 'access', 'action'];
+   return (depth ? '   '.repeat(depth - 1) + '+- ' : '') +
+      (entry.kind || 'resource') + ' ' + (entry.name || '') +
+      fields.filter(key => entry[key] !== undefined && entry[key] !== '').map(key => '  ' + key + '=' + entry[key]).join('');
+}
+function rrInventoryMessage(message) {
+   const cmd = message.object?.cmd;
+   if (cmd !== 'inventory-entry' && cmd !== 'inventory-end') return false;
+   if (message.request?.id !== rrInventoryId) return true;
+   const line = cmd === 'inventory-end' ? 'End of resource tree. /rig subscribe|unsubscribe controls property updates; /media and /gps manage streams.' : rrInventoryLine(message.inventory || {});
+   if (line !== null) ChatBox.Append($('<div class="notice" style="white-space:pre-wrap"></div>').text(line));
+   return true;
+}
+function rrRigCommand(args) {
+   const verb = (args[1] || 'list').toLowerCase();
+   const cmd = {list: 'inventory', subscribe: 'snapshot', unsubscribe: 'unsubscribe'}[verb];
+   if (!cmd || args.length > 2) { ChatBox.Append($('<div class="notice"></div>').text('Usage: /rig list|subscribe|unsubscribe')); return; }
+   if (!window.socket || socket.readyState !== WebSocket.OPEN) return;
+   const id = 'rig-' + (++rrInventoryRequest);
+   if (cmd === 'inventory') rrInventoryId = id;
+   socket.send(JSON.stringify({msg: {type: 'object'}, object: {cmd}, request: {id}}));
+}
+function rrGpsCommand(args) {
+   const verb = (args[1] || 'list').toLowerCase();
+   if (verb === 'list' && args.length <= 2) { rrRigCommand(['rig', 'list']); return; }
+   if (args.length === 3 && ['subscribe', 'unsubscribe'].includes(verb)) {
+      const entry = Object.values(mediaChannels).find(ch => ch.name === args[2] + '.gps.rx' && ch.codec === 'nmea');
+      if (entry) {
+         entry.disabled = verb === 'unsubscribe';
+         if (entry.disabled) unsubscribeMediaChannel(entry.uuid); else subscribeMediaChannel(entry.uuid, false);
+         return;
+      }
+   }
+   ChatBox.Append($('<div class="notice"></div>').text('Usage: /gps list|subscribe|unsubscribe <rig-alias|station>; use /rig list to discover outputs'));
+}
+if (typeof module !== 'undefined') Object.assign(module.exports, {rrInventoryLine});

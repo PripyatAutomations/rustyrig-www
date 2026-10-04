@@ -475,7 +475,10 @@ function parse_chat_cmd(e) {
          switch(command.toLowerCase()) {
             // commands with no arguments
             // Native serial transports are frontend-specific; never forward to server.
+            case 'rig': rrRigCommand(args); break;
+            case 'gps': rrGpsCommand(args); break;
             case 'sercom':
+               if (args.length === 2 && args[1].toLowerCase() === 'remote') { rrRigCommand(['rig', 'list']); break; }
                ChatBox.Append('<div><span class="notice">/sercom manages local PTYs and serial devices in the native GTK/TUI client.</span></div>');
                break;
             case 'clear':

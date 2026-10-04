@@ -63,8 +63,10 @@ function chat_parameter_candidates(beforeCaret) {
    let values = [];
    if (['/whois', '/kick', '/ban', '/mute', '/unmute', '/msg', '/query'].includes(command)) {
       if (arg === 1) values = getCULNames();
+   } else if (command === '/rig' || command === '/gps') {
+      if (arg === 1) values = ['LIST', 'SUBSCRIBE', 'UNSUBSCRIBE'];
    } else if (command === '/sercom') {
-      if (arg === 1) values = ['LIST', 'ATTACH', 'DISCONNECT'];
+      if (arg === 1) values = ['LIST', 'REMOTE', 'ATTACH', 'DISCONNECT'];
    } else if (command === '/quota') {
       if (arg === 1) values = ['LIST', 'SHOW', 'ADD', 'RESET', 'SET', 'HELP'];
       if (arg === 1 || ['SHOW', 'RESET'].includes(first) ||
