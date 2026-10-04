@@ -548,9 +548,6 @@ function parse_chat_cmd(e) {
             case 'config':
                wmSwitchTab('cfg');
                break;
-            case 'rig':
-               wmSwitchTab('rig');
-               break;
             case 'log':
                wmSwitchTab('syslog');
                break;
@@ -655,7 +652,7 @@ function parse_chat_cmd(e) {
                break;
             case 'help':
                ChatBox.Append('<div><span class="notice">*** HELP *** All commands start with /</span></div>');
-               ChatBox.Append('<div><span class="notice">/ chat | (cfg|config) | rig | log to switch tabs</span></div>');
+               ChatBox.Append('<div><span class="notice">/chat | /cfg | /config | /log to switch tabs</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/quit&nbsp;&nbsp;-&nbsp;End session</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/clear&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Clear chat scrollback</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/help&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- This help message</span></div>');
@@ -671,6 +668,13 @@ function parse_chat_cmd(e) {
                ChatBox.Append('<div><span class="notice">&nbsp;/part #room&nbsp;&nbsp;- Leave a room</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/room list|#room add|remove|vfo ... - Manage rooms and room/VFO mappings</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/quit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Disconnect</span></div>');
+
+               ChatBox.Append('<br/><div><span class="notice">*** RESOURCES - Discovery and Subscriptions</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/rig list - Show site, rigs, rooms, VFOs, media, GPS and permitted serial exports</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/rig subscribe | /rig unsubscribe - Start or stop UUID property updates (media subscriptions are separate)</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/gps list - Discover GPS services</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/gps subscribe|unsubscribe &lt;rig-alias|station&gt; - Start or stop NMEA output</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/sercom remote - Discover permitted server serial exports; local serial/PTY attachments require the native client</span></div>');
 
                ChatBox.Append('<br/><div><span class="notice">*** AUDIO - Audio Settings</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/media&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Media channels: LIST | SUBSCRIBE &lt;uuid|#&gt; | UNSUBSCRIBE &lt;uuid|#&gt;</span></div>');
