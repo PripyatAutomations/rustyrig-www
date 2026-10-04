@@ -108,6 +108,7 @@ function freq_input_init() {
          },
          cat: {
             cmd: "freq",
+            room: webui_control_room(),
             vfo: active_vfo,
             freq: val
          }

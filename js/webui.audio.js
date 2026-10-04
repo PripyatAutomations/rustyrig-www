@@ -67,7 +67,7 @@ function webui_tx_channel() {
    Object.keys(mediaChannels).some(function(uuid) {
       var chan = mediaChannels[uuid];
       if (!chan || chan.subsystem !== 0x01 || chan.dir !== 1 ||
-          !chan.subscribed || typeof chan.stream !== 'number') {
+          !chan.subscribed || !mediaRoomMatches(chan) || typeof chan.stream !== 'number') {
          return false;
       }
       if (chan.vfo === activeId) {

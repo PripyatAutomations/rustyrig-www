@@ -157,6 +157,11 @@ function handle_binary_frame(event) {
       return;
    }
 
+   var sentence = binframe_nmea_sentence(f);
+   if (sentence !== null) {
+      window.dispatchEvent(new CustomEvent('rustyrig:gps-nmea', {detail: {nmea: sentence, rig: f.rig, stream: f.stream}}));
+      return;
+   }
    if (!binframe_is_audio(f)) {
       // Other subsystems (waterfall, control, etc) not handled yet
       return;
@@ -182,6 +187,7 @@ function webui_handle_ws_msg(event) {
 
          if (msgObj.msg?.type === 'object' || msgObj.msg?.type === 'property') {
             if (!rrObjectCache.apply(msgObj)) console.warn('Invalid object/property message');
+            else if (typeof webui_refresh_room_vfo === 'function') webui_refresh_room_vfo();
          } else if (msgObj.syslog) {		// Handle syslog messages
             syslog_append(msgObj);
          } else if (msgObj.error) {

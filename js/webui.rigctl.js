@@ -6,6 +6,8 @@ var ptt_active = false;
 var ptt_by_vfo = {};
 var ptt_pending = false;
 var ptt_pending_state = false;
+var ptt_pending_vfo = null;
+var ptt_pending_room = null;
 var ptt_pending_timer = null;
 // How do we fill this from the radio.config.json?? that would solve a lot of problems
 const FREQ_DIGITS = 8;		// How many digits of frequency to display - 10 digits = single ghz
@@ -65,6 +67,7 @@ function vfo_edit_init() {
          },
          cat: {
             cmd: "mode",
+            room: webui_control_room(),
             vfo: active_vfo,
             mode: val
          }
@@ -82,6 +85,43 @@ function vfo_edit_init() {
    return false;
 }
 
+// PARITY: rrclient/rooms.c control flags and GTK room-scoped CAT requests.
+var webui_room_controls = Object.create(null);
+function webui_control_room() {
+   return typeof ChatBox !== 'undefined' && ChatBox.current_room ? ChatBox.current_room :
+      (typeof webui_authoritative_room !== 'undefined' ? webui_authoritative_room : null);
+}
+function webui_apply_room_controls(room) {
+   const policy = webui_room_controls[room] || {};
+   $('.rig-ptt').prop('disabled', !policy.tx);
+   $('#rig-mode, #rig-width, #rig-power, #rig-apply').prop('disabled', !policy.tx || ptt_active);
+   const index = String(active_vfo || 'A').toUpperCase().charCodeAt(0) - 65;
+   const canTune = policy.tune && index >= 0 && index < 26 && (policy.tuningMask & (1 << index));
+   $('#edit-vfo-freq input, #rig-freq').prop('disabled', (!policy.tx && !canTune) || ptt_active);
+}
+
+// PARITY: rrclient/vfo.c uses UUID observations for the selected room.
+function webui_refresh_room_vfo() {
+   if (typeof rrObjectCache === 'undefined' || typeof mediaChannels === 'undefined') return;
+   const entry = Object.values(mediaChannels).find(channel => channel.dir === 0 &&
+      mediaRoomMatches(channel) && channel.vfo === vfoLetterToId(active_vfo));
+   if (!entry || !entry.vfoUuid) return;
+   const object = rrObjectCache.objects.get(entry.vfoUuid);
+   if (!object || object.removed) return;
+   const value = name => {
+      const state = object.properties.get(name)?.state;
+      return state?.known ? state.value : undefined;
+   };
+   const vfo = String(active_vfo).toLowerCase();
+   const frequency = value('frequency'), mode = value('mode'), width = value('width');
+   if (frequency !== undefined) {
+      $('span#vfo-' + vfo + '-freq').html(format_freq(frequency) + '&nbsp;Hz');
+      freq_set_digits(frequency, $('#rig-freq'));
+   }
+   if (mode !== undefined) $('span#vfo-' + vfo + '-mode').html(mode);
+   if (width !== undefined) $('span#vfo-' + vfo + '-width').html(width + '&nbsp;Hz');
+}
+
 function ptt_btn_init() {
    ptt_button_apply();
    $('button.rig-ptt').click(function() {
@@ -89,10 +129,14 @@ function ptt_btn_init() {
       const state = !Boolean(ptt_by_vfo[vfo]);
       ptt_pending = true;
       ptt_pending_state = state;
+      ptt_pending_vfo = vfo;
+      ptt_pending_room = webui_control_room();
       ptt_button_apply();
       if (ptt_pending_timer) clearTimeout(ptt_pending_timer);
       ptt_pending_timer = setTimeout(function() {
          ptt_pending = false;
+         ptt_pending_timer = null;
+         ptt_pending_vfo = null;
          ptt_button_apply();
       }, 2000);
 
@@ -108,6 +152,7 @@ function ptt_btn_init() {
          },
          cat: {
             cmd: "ptt",
+            room: webui_control_room(),
             vfo: vfo,
             ptt: state ? "true" : "false"
          }
@@ -131,6 +176,7 @@ function ptt_button_apply() {
 
    $('.rig-ptt').removeClass('red-btn green-btn yellow-btn tot-btn');
    ptt_set_vfo_locked(ptt_active);
+   webui_apply_room_controls(webui_control_room());
    if (ptt_pending) {
       $('.rig-ptt').addClass('yellow-btn').html('PENDING');
    } else if (other_tx || ptt_active) {
@@ -149,6 +195,25 @@ function ptt_set_vfo_locked(locked) {
 function ptt_user_is_local(user) {
    return !user || (typeof auth_user !== 'undefined' && auth_user &&
       String(user).toLowerCase() === String(auth_user).toLowerCase());
+}
+
+// PARITY: rrclient/events.c rrclient_confirm_ptt() and gtk.ptt-btn.c.
+function ptt_confirm_state(user, vfo, state, room) {
+   if (!ptt_user_is_local(user)) return;
+   if (room && ptt_pending && ptt_pending_room && room !== ptt_pending_room) return;
+   vfo = String(vfo || active_vfo || 'A').toUpperCase();
+   if (vfo === String(active_vfo || 'A').toUpperCase()) {
+      ptt_by_vfo[vfo] = state;
+      if (!ptt_pending || ptt_pending_state === state) ptt_active = state;
+   }
+   if (ptt_pending && ptt_pending_state === state &&
+       vfo === String(ptt_pending_vfo || active_vfo || 'A').toUpperCase()) {
+      ptt_pending = false;
+      if (ptt_pending_timer) clearTimeout(ptt_pending_timer);
+      ptt_pending_timer = null;
+      ptt_pending_vfo = null;
+   }
+   ptt_button_apply();
 }
 
 // Server talk-timeout (TOT) fired: orange button with TIMED OUT text until
@@ -178,6 +243,11 @@ function ptt_tot_expired(msgObj) {
 }
 
 function webui_parse_cat_msg(msgObj) {
+   // Untagged CAT polls describe only the default rig.
+   if (typeof mediaChannels !== 'undefined' && typeof mediaRoom !== 'undefined') {
+      const selected = Object.values(mediaChannels).find(channel => channel.dir === 0 && mediaRoomMatches(channel));
+      if (selected && (msgObj.cat.room ? !mediaSameRig(msgObj.cat.room, selected.controlRoom) : selected.rig !== 0)) return;
+   }
    var cat_ts = (msgObj.msg && msgObj.msg.ts) ? msgObj.msg.ts : msgObj.ts;
    var msg_ts = msg_timestamp(cat_ts);
    var cmd = msgObj.cat.cmd;
@@ -194,10 +264,7 @@ function webui_parse_cat_msg(msgObj) {
          ptt_by_vfo[ptt_vfo] = ptt_state;
          if (ptt_user_is_local(user) && ptt_vfo === active_vfo) ptt_active = ptt_state;
          if (user) UserCache.update({ name: user, ptt: ptt_state });
-         if (ptt_pending && ptt_pending_state === ptt_state && ptt_user_is_local(user)) {
-            ptt_pending = false;
-            if (ptt_pending_timer) clearTimeout(ptt_pending_timer);
-         }
+         ptt_confirm_state(user, ptt_vfo, ptt_state, msgObj.cat.room);
          ptt_button_apply();
       }
    } else if (cmd === 'freq') {  // broadcast of a user freq change
@@ -231,6 +298,7 @@ function webui_parse_cat_msg(msgObj) {
          active_vfo = vfo;
          ptt_active = Boolean(ptt_by_vfo[active_vfo]);
          if (typeof mediaSyncActiveVfo === 'function') mediaSyncActiveVfo();
+         webui_refresh_room_vfo();
       }
       var vfo_id = (typeof vfo !== 'undefined' && vfo && vfo !== '-') ? vfo.toLowerCase() : 'a';
 
@@ -242,10 +310,7 @@ function webui_parse_cat_msg(msgObj) {
          // cat.state carries the authoritative talker as `user`; keep the
          // cache in sync so a user's release clears TX:username immediately.
          if (user) UserCache.update({ name: user, ptt: ptt_state });
-         if (ptt_pending && ptt_pending_state === ptt_state && ptt_user_is_local(user)) {
-            ptt_pending = false;
-            if (ptt_pending_timer) clearTimeout(ptt_pending_timer);
-         }
+         ptt_confirm_state(user, state_vfo, ptt_state, msgObj.cat.room);
          ptt_button_apply();
       }
       if (typeof freq !== 'undefined') {
@@ -267,6 +332,7 @@ function webui_parse_cat_msg(msgObj) {
          $('span#vfo-' + vfo_id + '-power').html(power + '&nbsp;W');
       }
 
+      if (typeof freq === 'undefined' && typeof mode === 'undefined') return;
       var ptt_user = '';
       if (typeof user !== 'undefined' && user !== '') {
          ptt_user = '<span>TX by ' + user + '</span>&nbsp';

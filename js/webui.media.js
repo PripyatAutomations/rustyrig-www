@@ -20,11 +20,63 @@
 
 var mediaChannels = {};        // uuid -> { name, subsystem, dir, vfo, rig, descr, codec, subscribed, disabled }
 var mediaReady = false;
+var mediaRoom = "";
 
-function subscribeMediaChannel(uuid) {
+function mediaRoomMatches(entry) {
+   return !entry.room || (entry.joined && entry.room.toLowerCase() === mediaRoom.toLowerCase());
+}
+
+function mediaRoomPolicy(room) {
+   return typeof webui_room_controls !== 'undefined' ? webui_room_controls[room] : null;
+}
+function mediaSameRig(room, base) {
+   return !!room && !!base && (room.toLowerCase() === base.toLowerCase() ||
+      room.toLowerCase().startsWith(base.toLowerCase() + '.'));
+}
+function mediaProjectRxRoom(entry, room) {
+   const policy = mediaRoomPolicy(room);
+   if (entry.dir !== 0 || !policy || !policy.joined || !mediaSameRig(room, entry.controlRoom)) return;
+   entry.room = room;
+   entry.joined = entry.vfo < 26 && !!(policy.vfoMask & (1 << entry.vfo));
+}
+
+// PARITY: rrclient/media.c rrclient_media_room_joined/parted.
+function mediaJoinRoom(room) {
+   mediaRoom = room || "";
+   const policy = mediaRoomPolicy(mediaRoom);
+   if (policy && policy.vfoMask && !(policy.vfoMask & (1 << vfoLetterToId(activeVfoId())))) {
+      for (let index = 0; index < 26; index++) if (policy.vfoMask & (1 << index)) {
+         active_vfo = String.fromCharCode(65 + index); break;
+      }
+   }
+   Object.keys(mediaChannels).forEach(uuid => mediaProjectRxRoom(mediaChannels[uuid], mediaRoom));
+   mediaSyncActiveVfo();
+   if (typeof webui_refresh_room_vfo === 'function') webui_refresh_room_vfo();
+}
+
+function mediaSelectRoom(room) {
+   const policy = mediaRoomPolicy(room);
+   if (policy && policy.joined && policy.vfoMask) { mediaJoinRoom(room); return; }
+   if (Object.keys(mediaChannels).some(function(uuid) {
+      var entry = mediaChannels[uuid];
+      return entry.room && entry.room.toLowerCase() === room.toLowerCase() && entry.joined;
+   })) mediaJoinRoom(room);
+}
+
+function mediaPartRoom(room) {
+   Object.keys(mediaChannels).forEach(function(uuid) {
+      var entry = mediaChannels[uuid];
+      if (entry.room && entry.room.toLowerCase() === room.toLowerCase()) entry.joined = false;
+   });
+   if (mediaRoom.toLowerCase() === room.toLowerCase()) mediaRoom = "";
+   mediaSyncActiveVfo();
+}
+
+function subscribeMediaChannel(uuid, automatic) {
    if (!uuid || !window.socket || socket.readyState !== WebSocket.OPEN) {
       return;
    }
+   if (mediaChannels[uuid]) mediaChannels[uuid].auto = automatic === true;
    var sub = {
       "msg": { "type": "media" },
       "media": { "cmd": "subscribe", "chan-uuid": uuid }
@@ -75,21 +127,25 @@ function mediaTryAutosubscribe(entry) {
       return;
    }
    // Only audio channels are auto-subscribed for now
-   if (entry.subsystem !== 0x01) {    // RR_BINFRAME_SUBSYS_AUDIO
+   if (entry.subsystem !== 0x01 || !mediaRoomMatches(entry)) {    // RR_BINFRAME_SUBSYS_AUDIO
       return;
    }
    if (entry.vfo !== vfoLetterToId(activeVfoId()) && entry.vfo !== 0xFF) {
       return;
    }
+   if (typeof audio_direction_disabled !== "undefined" && audio_direction_disabled[entry.dir]) {
+      entry.disabled = true;
+      return;
+   }
    entry.auto = true;
    entry.subscribed = true;
-   subscribeMediaChannel(entry.uuid);
+   subscribeMediaChannel(entry.uuid, true);
 }
 
 // The server chooses the initial codec when the first subscriber joins. Do
 // not send a codec request here; only reflect the confirmed stream format.
 function mediaApplyConfirmedCodec(entry) {
-   if (!entry || !entry.codec || entry.vfo !== vfoLetterToId(activeVfoId())) {
+   if (!entry || !mediaRoomMatches(entry) || !entry.codec || entry.vfo !== vfoLetterToId(activeVfoId())) {
       return;
    }
    if (entry.dir === 1 && typeof audio_codec_tx !== 'undefined') {
@@ -108,7 +164,7 @@ function mediaSyncActiveVfo() {
    Object.keys(mediaChannels).forEach(function(uuid) {
       var entry = mediaChannels[uuid];
       if (!entry || entry.subsystem !== 0x01 || entry.vfo === 0xFF) return;
-      if (entry.vfo === active) {
+      if (entry.vfo === active && mediaRoomMatches(entry)) {
          mediaTryAutosubscribe(entry);
       } else if (entry.auto && entry.subscribed && !entry.disabled) {
          entry.subscribed = false;
@@ -140,6 +196,14 @@ function webui_parse_media_msg(msgObj) {
          entry.dir = m.dir;
          entry.vfo = m.vfo;
          entry.rig = m.rig;
+         entry.room = m.room || "";
+         entry.controlRoom = m['control-room'] || entry.room;
+         entry.joined = m.joined === true;
+         entry.rigUuid = m["rig-uuid"] || "";
+         entry.vfoUuid = m["vfo-uuid"] || "";
+         if (entry.joined) mediaProjectRxRoom(entry, mediaRoom);
+         if (entry.room && !entry.joined) { entry.subscribed = false; delete entry.stream; }
+         if (entry.room && entry.joined && !mediaRoom) mediaRoom = entry.room;
          entry.name = m.name || entry.name || "";
          entry.codec = m.codec || entry.codec || null;
          if (typeof entry.disabled !== 'boolean') entry.disabled = false;
@@ -150,10 +214,19 @@ function webui_parse_media_msg(msgObj) {
          mediaTryAutosubscribe(mediaChannels[uuid]);
       }
       return true;
+   } else if (m.cmd === "unsubscribed") {
+      var entry = mediaChannels[m["chan-uuid"]];
+      if (entry) { entry.subscribed = false; delete entry.stream; }
+      return true;
    } else if (m.cmd === "subscribed") {
       var u = m["chan-uuid"];
 
       if (u && mediaChannels[u]) {
+         if (mediaChannels[u].disabled || (mediaChannels[u].room && !mediaChannels[u].joined) ||
+             (mediaChannels[u].auto && !mediaRoomMatches(mediaChannels[u]))) {
+            unsubscribeMediaChannel(u);
+            return true;
+         }
          mediaChannels[u].subscribed = true;
          mediaChannels[u].disabled = false;
          mediaChannels[u].stream = m.stream;
@@ -178,6 +251,7 @@ window.webui_inits.push(function webui_media_init() {
       var prev = on_socket_open;
       on_socket_open = function() {
          mediaChannels = {};
+         mediaRoom = "";
          if (typeof audio_direction_disabled !== "undefined") {
             audio_direction_disabled = [false, false];
          }

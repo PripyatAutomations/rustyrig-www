@@ -9,6 +9,8 @@ const ctx = {
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync('www/js/webui.chat.completion.js', 'utf8'), ctx);
 function candidates(line) { return Array.from(ctx.chat_parameter_candidates(line) || []); }
+assert.deepEqual(candidates('/sercom at'), ['ATTACH']);
+assert.deepEqual(candidates('/sercom di'), ['DISCONNECT']);
 assert.deepEqual(candidates('/whois a'), ['alice']);
 assert.deepEqual(candidates('/whois alice a'), []);
 assert.deepEqual(candidates('/quota SET alice '), []);

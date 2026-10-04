@@ -10,6 +10,8 @@ var login_user;			// Username we send to the server
 
 if (!window.webui_inits) window.webui_inits = [];
 window.webui_inits.push(function webui_auth_init() {
+   $('#autojoin-rooms').val(localStorage.getItem("rustyrig.autojoin") || "")
+      .on('change', function() { localStorage.setItem("rustyrig.autojoin", this.value.trim()); });
    $('input#user').change(function() {
       // Cache the username and force to upper case
       login_user = $('input#user').val().toUpperCase();
@@ -207,6 +209,13 @@ function webui_parse_auth_msg(msgObj) {
          }
 
          logged_in = true;
+         // PARITY: rrclient/events.c rrclient_handle_auth (server autojoin).
+         var autojoin = localStorage.getItem("rustyrig.autojoin") || "";
+         autojoin.split(/[,\s]+/).filter(Boolean).forEach(function(room) {
+            if (/^[#&][^,\s]+$/.test(room)) socket.send(JSON.stringify({
+               msg: { type: "talk" }, talk: { cmd: "join", target: room }
+            }));
+         });
          rrObjectsSubscribe();
 
          // The browser advertises the codecs it can decode.  RX and TX are

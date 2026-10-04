@@ -102,6 +102,8 @@ class WebUiChat {
    SwitchRoom(room) {
       room = this.ensure_room(room, false);
       this.current_room = room;
+      if (typeof mediaSelectRoom === 'function') mediaSelectRoom(room);
+      if (typeof webui_apply_room_controls === 'function') webui_apply_room_controls(room);
       this.output.html(this.rooms[room] || '');
       $('#chat-room-tabs button').each(function() {
          $(this).toggleClass('active', $(this).attr('data-room') === room);
@@ -226,9 +228,14 @@ function parse_userinfo_reply(message) {
 //    console.log("parse_userinfo_reply:", message);
     if (typeof message !== 'undefined') {
        // Server sends the PTT state as talk.tx (see srv.chat.c: ws_send_userinfo)
+       // PARITY: rrclient/events.c rrclient_handle_userinfo().
+       const tx = message.talk.tx !== undefined ? message.talk.tx : message.talk.ptt;
+       if (tx !== undefined && typeof ptt_confirm_state === 'function')
+          ptt_confirm_state(message.talk.user, message.talk['ptt-vfo'], parse_bool_field(tx), message.talk['ptt-room']);
        UserCache.update({ name: message.talk.user, room: message.talk.room || webui_authoritative_room,
           privs: message.talk.privs, muted: parse_bool_field(message.talk.muted),
           ptt: parse_bool_field(message.talk.tx !== undefined ? message.talk.tx : message.talk.ptt),
+          ptt_room: message.talk['ptt-room'] || '',
           sessions: message.talk.sessions });
     }
 
@@ -467,6 +474,10 @@ function parse_chat_cmd(e) {
          // Compare the lower-cased command
          switch(command.toLowerCase()) {
             // commands with no arguments
+            // Native serial transports are frontend-specific; never forward to server.
+            case 'sercom':
+               ChatBox.Append('<div><span class="notice">/sercom manages local PTYs and serial devices in the native GTK/TUI client.</span></div>');
+               break;
             case 'clear':
                chatbox_clear();
                break;
@@ -816,6 +827,7 @@ const UserCache = {
       // I dont remember why this is done as such; ideally we should duplicate user object into this.users[user.name] directly
       this.users[user.name] = {
          ...(user.hasOwnProperty('ptt')   && { ptt:   user.ptt }),
+         ...(user.hasOwnProperty('ptt_room') && { ptt_room: user.ptt_room }),
          ...(user.hasOwnProperty('muted') && { muted: user.muted }),
          ...(user.hasOwnProperty('privs') && { privs: user.privs }),
          ...(user.hasOwnProperty('sessions') && { sessions: user.sessions }),
@@ -850,6 +862,7 @@ const UserCache = {
          return;
       }
       if ('ptt'   in user) existing.ptt   = user.ptt;
+      if ('ptt_room' in user) existing.ptt_room = user.ptt_room;
       if ('privs' in user) existing.privs = user.privs;
       if ('muted' in user) existing.muted = user.muted;
       if ('sessions' in user) existing.sessions = user.sessions;
@@ -972,9 +985,31 @@ function webui_parse_chat_msg(msgObj) {
    if (targetRoom) {
       ChatBox.ensure_room(targetRoom, false);
    }
-   if (cmd === 'join' && msgObj.room && msgObj.room['has-vfos'] && targetRoom) {
-      webui_authoritative_room = targetRoom;
+   if ((cmd === 'join' && msgObj.talk.user === auth_user || cmd === 'room-vfo') && targetRoom &&
+       msgObj.room && typeof webui_room_controls !== 'undefined') {
+      webui_room_controls[targetRoom] = {
+         joined: true,
+         vfoMask: Number(msgObj.room['vfo-mask'] || 0),
+         tx: msgObj.room['tx-control'] !== undefined ? parse_bool_field(msgObj.room['tx-control']) :
+            parse_bool_field(msgObj.room['has-vfos']) && /-rig[0-9]+$/i.test(targetRoom),
+         tune: parse_bool_field(msgObj.room['has-vfos']) && parse_bool_field(msgObj.room['rx-tunable']),
+         tuningMask: Number(msgObj.room['rx-tuning-mask'] || 0)
+      };
+      if (typeof ChatBox !== 'undefined' && ChatBox.current_room === targetRoom)
+         webui_apply_room_controls(targetRoom);
+   }
+   if (cmd === 'join' && msgObj.talk.user === auth_user && targetRoom) {
+      if (msgObj.room && msgObj.room.site) webui_authoritative_room = targetRoom;
+      if (msgObj.room && msgObj.room['has-vfos'] && typeof mediaJoinRoom === 'function')
+         mediaJoinRoom(targetRoom);
       ChatBox.ensure_room(targetRoom, true);
+   }
+   if (cmd === 'part' && targetRoom && msgObj.talk.user === auth_user &&
+       msgObj.talk.session === auth_token) {
+      if (typeof webui_room_controls !== 'undefined' && webui_room_controls[targetRoom])
+         webui_room_controls[targetRoom].joined = false;
+      if (typeof mediaPartRoom === 'function') mediaPartRoom(targetRoom);
+      ChatBox.RemoveRoom(targetRoom);
    }
 
    if (cmd === 'room-list') {
