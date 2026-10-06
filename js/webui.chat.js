@@ -478,7 +478,7 @@ function parse_chat_cmd(e) {
             case 'rig': rrRigCommand(args); break;
             case 'gps': rrGpsCommand(args); break;
             case 'sercom':
-               if (args.length === 2 && args[1].toLowerCase() === 'remote') { rrRigCommand(['rig', 'list']); break; }
+               if (args.length === 1 || (args.length === 2 && ['list','remote'].includes(args[1].toLowerCase()))) { rrRigCommand(['serial', 'list']); break; }
                ChatBox.Append('<div><span class="notice">/sercom manages local PTYs and serial devices in the native GTK/TUI client.</span></div>');
                break;
             case 'clear':
@@ -611,8 +611,8 @@ function parse_chat_cmd(e) {
                console.log("Unmuting RX audio");
                rxGainNode.gain.value = unmute_vol;
                break;
-            case 'objects':
-               if (args.length > 2) ChatBox.Append($('<div class="notice"></div>').text('Usage: /objects [symbol|uuid] (e.g. rig0 or rig0.A)'),ChatBox.current_room);
+            case 'object':
+               if (args.length > 2) ChatBox.Append($('<div class="notice"></div>').text('Usage: /object [symbol|uuid] (e.g. rig0 or rig0.A)'),ChatBox.current_room);
                else rrObjectsList(args[1]);
                break;
             case 'media':
@@ -676,12 +676,12 @@ function parse_chat_cmd(e) {
                ChatBox.Append('<div><span class="notice">&nbsp;/quit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Disconnect</span></div>');
 
                ChatBox.Append('<br/><div><span class="notice">*** RESOURCES - Discovery and Subscriptions</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/objects [rig0|rig0.A|uuid] - Inspect cached objects and readable properties</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/rig list - Show site, rigs, rooms, VFOs, media, GPS and permitted serial exports</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/object [rig0|rig0.A|uuid] - Inspect cached objects and readable properties</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/rig list - List radios and their VFOs</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/rig subscribe | /rig unsubscribe - Start or stop UUID property updates (media subscriptions are separate)</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/gps list - Discover GPS services</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/gps subscribe|unsubscribe &lt;rig-alias|station&gt; - Start or stop NMEA output</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/sercom remote - Discover permitted server serial exports; local serial/PTY attachments require the native client</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/sercom [list|remote] - Discover permitted server serial exports; local serial/PTY attachments require the native client</span></div>');
 
                ChatBox.Append('<br/><div><span class="notice">*** AUDIO - Audio Settings</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/media&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Media channels: LIST | SUBSCRIBE &lt;name|uuid|#number&gt; | UNSUBSCRIBE &lt;name|uuid|#number&gt;</span></div>');

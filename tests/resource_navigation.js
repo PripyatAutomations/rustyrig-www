@@ -87,3 +87,6 @@ console.log('PASS: site, rig RX room and status resource filters');
 ctx.ChatBox.current_room='#station-rig0.rx';
 assert(ctx.chat_parameter_candidates('/media SUB ').includes('rig0.vfo_a.rx'));
 assert(!ctx.chat_parameter_candidates('/media SUB ').includes('station.gps.rx'));
+
+assert(ctx.chat_parameter_candidates('/object rig').includes('rig0'));
+assert.equal(ctx.chat_parameter_candidates('/objects rig'),null);

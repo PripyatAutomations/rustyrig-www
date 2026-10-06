@@ -131,12 +131,16 @@ function rrInventoryMessage(message) {
    if (cmd === 'inventory-entry') {
       const entry = message.inventory || {}, depth = Number(entry.depth);
       if (!Number.isInteger(depth) || depth < 0 || depth > 4) return true;
-      pending.visible[depth] = !room || room[0] !== '#' ||
+      pending.visible[depth] = pending.kind === 'serial' || !room || room[0] !== '#' ||
          (['site','rig'].includes(entry.kind) ? mediaResourceMatches(room,entry.room) :
           depth > 0 && pending.visible[depth - 1]);
       if (!pending.visible[depth]) return true;
+      if (!(pending.kind === 'rig' ? ['rig','vfo'].includes(entry.kind) : entry.kind === pending.kind)) return true;
+      if (pending.kind === 'serial' && entry.service !== 'serial') return true;
+      pending.count++;
    }
-   const line = cmd === 'inventory-end' ? 'End of resource tree. /rig subscribe|unsubscribe controls property updates; /media and /gps manage streams.' : rrInventoryLine(message.inventory || {});
+   const line = cmd === 'inventory-end' ? 'End of ' + pending.kind + ' list (' + pending.count + ' entries).' :
+      rrInventoryLine({...message.inventory, depth: pending.kind === 'rig' ? message.inventory.depth : 0});
    if (line !== null) ChatBox.Append($('<div class="notice" style="white-space:pre-wrap"></div>').text(line), room);
    if (cmd === 'inventory-end') rrInventoryRequests.delete(id);
    return true;
@@ -153,13 +157,13 @@ function rrRigCommand(args) {
          return;
       }
       rrInventoryId = id;
-      rrInventoryRequests.set(id,{room: ChatBox.current_room || (typeof webui_authoritative_room !== 'undefined' ? webui_authoritative_room : '#rig'), visible: []});
+      rrInventoryRequests.set(id,{room: ChatBox.current_room || (typeof webui_authoritative_room !== 'undefined' ? webui_authoritative_room : '#rig'), visible: [], kind: ['gps','serial'].includes(args[0]) ? args[0] : 'rig', count: 0});
    }
    socket.send(JSON.stringify({msg: {type: 'object'}, object: {cmd}, request: {id}}));
 }
 function rrGpsCommand(args) {
    const verb = (args[1] || 'list').toLowerCase();
-   if (verb === 'list' && args.length <= 2) { rrRigCommand(['rig', 'list']); return; }
+   if (verb === 'list' && args.length <= 2) { rrRigCommand(['gps', 'list']); return; }
    if (args.length === 3 && ['subscribe', 'unsubscribe'].includes(verb)) {
       const entry = Object.values(mediaChannels).find(ch => ch.name === args[2] + '.gps.rx' && ch.codec === 'gpsp');
       if (entry) {
@@ -168,7 +172,7 @@ function rrGpsCommand(args) {
          return;
       }
    }
-   ChatBox.Append($('<div class="notice"></div>').text('Usage: /gps list|subscribe|unsubscribe <rig-alias|station>; use /rig list to discover outputs'),ChatBox.current_room);
+   ChatBox.Append($('<div class="notice"></div>').text('Usage: /gps list|subscribe|unsubscribe <rig-alias|station>; use /gps list to discover outputs'),ChatBox.current_room);
 }
 if (typeof module !== 'undefined') Object.assign(module.exports, {rrInventoryLine});
 
@@ -198,7 +202,7 @@ function rrObjectsList(reference) {
       const exact = objects.find(o => o.uuid.toLowerCase() === reference.toLowerCase());
       const matches = exact ? [exact] : objects.filter(o => symbols.get(o.uuid).toLowerCase() === reference.toLowerCase());
       if (matches.length !== 1) {
-         ChatBox.Append($('<div class="notice"></div>').text('Unknown or ambiguous object ' + reference + '; use /objects to choose a qualified symbol or UUID'),room);
+         ChatBox.Append($('<div class="notice"></div>').text('Unknown or ambiguous object ' + reference + '; use /object to choose a qualified symbol or UUID'),room);
          return false;
       }
       selected = matches[0];

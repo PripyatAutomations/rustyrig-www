@@ -101,7 +101,7 @@ function chat_parameter_candidates(beforeCaret) {
             else if (number && word.startsWith('#')) values.push('#' + number);
          });
       }
-   } else if (command === '/objects') {
+   } else if (command === '/object') {
       if (arg === 1 && typeof rrObjectReferences === 'function') {
          const objects = rrObjectReferences();
          for (const object of objects) {
@@ -254,7 +254,7 @@ function updateCompletionIndicator(name) {
             (ch.subscribed ? 'subscribed' : 'unsubscribed') + '; room ' + (ch.room || 'any') +
             (ch.room && !ch.joined ? '; join first' : '') + ']';
       }
-      if (/^\/objects\s/i.test(line) && typeof rrObjectReferences === 'function') {
+      if (/^\/object\s/i.test(line) && typeof rrObjectReferences === 'function') {
          const object = rrObjectReferences().find(o => o.symbol.toLowerCase() === name.toLowerCase() || o.uuid.toLowerCase() === name.toLowerCase());
          if (object) label += ' — ' + object.type + ' ' + (object.name || object.symbol);
       }
