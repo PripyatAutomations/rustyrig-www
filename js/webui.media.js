@@ -270,31 +270,37 @@ window.webui_inits.push(function webui_media_init() {
 var mediaLastList = [];   // uuids in order of the last /media list output
 
 function mediaChanLookup(ref) {
-   if (!ref) {
-      return null;
+   if (!ref) return null;
+   const entries = Object.entries(mediaChannels);
+   const exact = entries.find(([uuid]) => uuid.toLowerCase() === ref.toLowerCase());
+   if (exact) return exact[1];
+   if (/^#?[0-9]+$/.test(ref)) {
+      const index = Number(ref.replace(/^#/, ''));
+      return Number.isSafeInteger(index) && index > 0 && index <= mediaLastList.length ?
+         mediaChannels[mediaLastList[index - 1]] || null : null;
    }
-   // #N refers to the Nth entry from the most recent listing
-   if (ref.charAt(0) === '#') {
-      var idx = parseInt(ref.slice(1), 10);
-      if (isNaN(idx) || idx < 1 || idx > mediaLastList.length) {
-         return null;
-      }
-      return mediaChannels[mediaLastList[idx - 1]] || null;
-   }
-   return mediaChannels[ref] || null;
+   const matches = entries.map(([, ch]) => ch).filter(ch =>
+      ch.name && ch.name.toLowerCase() === ref.toLowerCase());
+   return matches.length === 1 ? matches[0] : null;
+}
+
+function mediaCommandNotice(text, error = false) {
+   ChatBox.Append($('<div></div>').addClass(error ? 'error' : 'notice').text(text));
 }
 
 // Format one channel entry for display
 function mediaFormatChan(idx, chan) {
    var sub = chan.subsystem === 0x01 ? 'audio' :
              chan.subsystem === 0x02 ? 'video' :
-             ('sub-' + chan.subsystem);
+             chan.subsystem === 0x04 ? 'GPS/serial' : ('sub-' + chan.subsystem);
    var dir = chan.dir === 0 ? 'rx' : chan.dir === 1 ? 'tx' : 'n/a';
    return '#' + idx + ' ' + (chan.name || chan.uuid) + ' [' + chan.uuid + '; ' + sub + ' ' + dir +
           ' vfo:' + (chan.vfo === 0xFF ? '*' : String.fromCharCode(65 + chan.vfo)) +
           ' rig:' + (chan.rig === 0xFF ? '*' : chan.rig) + ']' +
           ' codec: ' + (chan.codec || '(none)') +
-          (chan.subscribed ? ' [subscribed]' : '') +
+          ' room: ' + (chan.room || 'any') +
+          (chan.subscribed ? ' [subscribed]' : ' [unsubscribed]') +
+          (chan.room && !chan.joined ? ' [join room first]' : '') +
           (chan.descr ? ' - ' + chan.descr : '');
 }
 
@@ -315,7 +321,7 @@ function mediaListChannels() {
    ChatBox.Append('<div><span class="notice">*** Media channels (' + uuids.length + ') ***</span></div>');
    for (var i = 0; i < uuids.length; i++) {
       var chan = mediaChannels[uuids[i]];
-      ChatBox.Append('<div><span class="notice">&nbsp;' + mediaFormatChan(i + 1, chan) + '</span></div>');
+      mediaCommandNotice(mediaFormatChan(i + 1, chan));
    }
 }
 

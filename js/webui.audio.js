@@ -397,10 +397,14 @@ function webui_audio_codec_list() {
 function webui_audio_set_codec(codec, isTx, target) {
    codec = String(codec || '').toLowerCase();
    var direction = isTx ? 1 : 0;
+   // PARITY: rrclient/media.c media_select_codec. Invalid/ambiguous symbols
+   // must not silently become a selection for every channel in a direction.
+   const selected = target && typeof mediaChanLookup === 'function' ? mediaChanLookup(target) : null;
+   if (target && (!selected || selected.subsystem !== 1 || selected.dir !== direction ||
+       (!selected.subscribed && !selected.disabled))) return false;
    if (codec === 'none') {
       if (!target) audio_direction_disabled[direction] = true;
-      ws_send_codec_for_direction(codec, direction, target ?
-         (typeof mediaChanLookup === 'function' ? mediaChanLookup(target) : target) : null);
+      ws_send_codec_for_direction(codec, direction, selected);
       return true;
    }
    if (audio_common_codecs.indexOf(codec) < 0 &&
@@ -415,11 +419,9 @@ function webui_audio_set_codec(codec, isTx, target) {
          console.warn("This browser cannot encode TX codec:", codec);
          return false;
       }
-      ws_send_codec_for_direction(codec, direction, target ?
-         (typeof mediaChanLookup === 'function' ? mediaChanLookup(target) : target) : null);
+      ws_send_codec_for_direction(codec, direction, selected);
    } else {
-      ws_send_codec_for_direction(codec, direction, target ?
-         (typeof mediaChanLookup === 'function' ? mediaChanLookup(target) : target) : null);
+      ws_send_codec_for_direction(codec, direction, selected);
    }
    audio_direction_disabled[direction] = false;
    return true;

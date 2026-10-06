@@ -150,3 +150,40 @@ function rrGpsCommand(args) {
    ChatBox.Append($('<div class="notice"></div>').text('Usage: /gps list|subscribe|unsubscribe <rig-alias|station>; use /rig list to discover outputs'));
 }
 if (typeof module !== 'undefined') Object.assign(module.exports, {rrInventoryLine});
+
+function rrObjectReferences() {
+   const objects = rrObjectCache.dump();
+   return objects.map(o => {
+      const owner = objects.find(parent => parent.uuid === o.owner);
+      return {...o, symbol: o.type === 'vfo' && owner ? (owner.alias || owner.uuid) + '.' + o.alias : (o.alias || o.uuid)};
+   });
+}
+// PARITY: rrclient/objects.c rr_object_cache_dump_selected.
+function rrObjectsList(reference) {
+   const objects = rrObjectReferences();
+   const symbols = new Map(objects.map(o => [o.uuid,o.symbol]));
+   let selected;
+   if (reference) {
+      const exact = objects.find(o => o.uuid.toLowerCase() === reference.toLowerCase());
+      const matches = exact ? [exact] : objects.filter(o => symbols.get(o.uuid).toLowerCase() === reference.toLowerCase());
+      if (matches.length !== 1) {
+         ChatBox.Append($('<div class="notice"></div>').text('Unknown or ambiguous object ' + reference + '; use /objects to choose a qualified symbol or UUID'));
+         return false;
+      }
+      selected = matches[0];
+   }
+   const emit = line => ChatBox.Append($('<div class="notice" style="white-space:pre-wrap"></div>').text(line));
+   emit(rrObjectCache.ready ? 'Object snapshot complete' : 'Object snapshot incomplete');
+   for (const o of objects) {
+      if (selected && o !== selected && o.owner !== selected.uuid) continue;
+      emit(o.type + ' ' + symbols.get(o.uuid) + ' — ' + (o.name || symbols.get(o.uuid)) +
+         (o.backend ? ' / ' + o.backend : '') + ' (uuid=' + o.uuid + ')');
+      for (const p of o.properties) {
+         emit('  ' + p.name + ': ' + (p.state?.known ? String(p.state.value) : 'unknown') +
+            (p.descriptor?.unit ? ' ' + p.descriptor.unit : '') +
+            (p.state && !p.state.available ? ' (unavailable)' : '') +
+            (p.descriptor?.writable ? ' [writable]' : ''));
+      }
+   }
+   return true;
+}

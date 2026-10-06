@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const ctx = {
    UserCache: {get_all: () => [{name: 'alice'}, {name: 'bob'}]},
-   mediaChannels: {'rx-a': {subscribed: true}, 'rx-b': {subscribed: false}},
+   mediaChannels: {'rx-a': {name: 'rig0.vfo_a.rx', subsystem: 1, dir: 0, subscribed: true}, 'rx-b': {name: 'rig1.vfo_a.rx', subscribed: false}},
    mediaLastList: ['rx-a', 'rx-b']
 };
 vm.createContext(ctx);
@@ -15,8 +15,12 @@ assert.deepEqual(candidates('/whois a'), ['alice']);
 assert.deepEqual(candidates('/whois alice a'), []);
 assert.deepEqual(candidates('/quota SET alice '), []);
 assert.deepEqual(candidates('/quota SHOW a'), ['alice']);
+assert.deepEqual(candidates('/media SUB '), ['rig0.vfo_a.rx', 'rig1.vfo_a.rx']);
+assert.deepEqual(candidates('/media SUB rig0'), ['rig0.vfo_a.rx']);
 assert.deepEqual(candidates('/media SUB #'), ['#1', '#2']);
 assert.deepEqual(candidates('/media UNSUB rx-'), ['rx-a']);
 assert.deepEqual(candidates('/media SUB rx-a '), []);
+assert.deepEqual(candidates('/rxcodec NONE rig0'), ['rig0.vfo_a.rx']);
+assert.deepEqual(candidates('/txcodec NONE rig0'), []);
 assert.deepEqual(candidates('/syslog of'), ['off']);
 console.log('PASS: browser command parameter completion parity');

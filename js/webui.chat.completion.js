@@ -65,6 +65,11 @@ function chat_parameter_candidates(beforeCaret) {
       if (arg === 1) values = getCULNames();
    } else if (command === '/rig' || command === '/gps') {
       if (arg === 1) values = ['LIST', 'SUBSCRIBE', 'UNSUBSCRIBE'];
+      if (command === '/gps' && arg === 2 && ['SUBSCRIBE','UNSUBSCRIBE'].includes(first)) {
+         const channels = typeof mediaChannels === 'undefined' ? {} : mediaChannels;
+         values = Object.values(channels).filter(ch => ch.codec === 'gpsp' && ch.name?.endsWith('.gps.rx') &&
+            (first !== 'UNSUBSCRIBE' || ch.subscribed)).map(ch => ch.name.slice(0,-7));
+      }
    } else if (command === '/sercom') {
       if (arg === 1) values = ['LIST', 'REMOTE', 'ATTACH', 'DISCONNECT'];
    } else if (command === '/quota') {
@@ -75,24 +80,40 @@ function chat_parameter_candidates(beforeCaret) {
       if (arg === 1) values = ['LIST', '#'];
       else if (arg === 2 && first.startsWith('#')) values = ['ADD', 'REMOVE', 'VFO'];
       else if (arg === 3 && tokens[2] && tokens[2].toUpperCase() === 'VFO') values = ['ADD', 'LIST', 'REMOVE'];
-   } else if (command === '/media') {
-      if (arg === 1) values = ['LIST', 'SUBSCRIBE', 'UNSUBSCRIBE', 'SUB', 'UNSUB'];
-      if (arg === 2 && ['SUBSCRIBE', 'UNSUBSCRIBE', 'SUB', 'UNSUB'].includes(first)) {
+   } else if (command === '/media' || command === '/rxcodec' || command === '/txcodec') {
+      const media = command === '/media';
+      const tx = command === '/txcodec';
+      if (arg === 1 && !media) values = ['LIST','NONE'].concat(typeof webui_audio_codec_list === 'function' ? webui_audio_codec_list() : []);
+      if (arg === 1 && media) values = ['LIST', 'SUBSCRIBE', 'UNSUBSCRIBE', 'SUB', 'UNSUB'];
+      if (arg === 2 && (media ? ['SUBSCRIBE', 'UNSUBSCRIBE', 'SUB', 'UNSUB'].includes(first) : first !== 'LIST')) {
          const channels = typeof mediaChannels === 'undefined' ? {} : mediaChannels;
          const numbers = typeof mediaLastList === 'undefined' ? [] : mediaLastList;
          Object.keys(channels).forEach(uuid => {
-            if (first.startsWith('UN') && !channels[uuid].subscribed) return;
-            values.push(uuid);
+            if (media ? (first.startsWith('UN') && !channels[uuid].subscribed) :
+                (channels[uuid].subsystem !== 1 || channels[uuid].dir !== (tx ? 1 : 0) || (!channels[uuid].subscribed && !channels[uuid].disabled))) return;
+            const named = channels[uuid].name && !/\s/.test(channels[uuid].name) && Object.values(channels).filter(ch =>
+               ch.name?.toLowerCase() === channels[uuid].name.toLowerCase()).length === 1;
+            if (named) values.push(channels[uuid].name);
+            if (word || !named) values.push(uuid);
             const number = numbers.indexOf(uuid) + 1;
-            if (number) values.push('#' + number);
+            if (number && /^#?[0-9]/.test(word)) values.push((word.startsWith('#') ? '#' : '') + number);
+            else if (number && word.startsWith('#')) values.push('#' + number);
          });
+      }
+   } else if (command === '/objects') {
+      if (arg === 1 && typeof rrObjectReferences === 'function') {
+         for (const object of rrObjectReferences()) {
+            const named = object.symbol && !/\s/.test(object.symbol);
+            if (named) values.push(object.symbol);
+            if (word || !named) values.push(object.uuid);
+         }
       }
    } else if (command === '/syslog') {
       if (arg === 1) values = ['on', 'off'];
    } else {
       return null;
    }
-   return values.filter(value => value.toLowerCase().startsWith(word.toLowerCase()));
+   return [...new Set(values)].filter(value => value.toLowerCase().startsWith(word.toLowerCase()));
 }
 
 function handle_chat_completion(e) {
@@ -221,7 +242,20 @@ function getCULNames() {
 
 function updateCompletionIndicator(name) {
    if (name) {
-      $('#completion-indicator').text(`🔍 COMPLETING: ${name}`).show();
+      const line = $('#chat-input').val();
+      let label = name;
+      if (/^\/(media|gps|rxcodec|txcodec)\s/i.test(line) && typeof mediaChanLookup === 'function') {
+         const ch = mediaChanLookup(/^\/gps\s/i.test(line) ? name + '.gps.rx' : name);
+         if (ch) label += ' — ' + (ch.descr || ch.name || '') + ' [' +
+            (ch.dir === 1 ? 'TX' : 'RX') + ' ' + (ch.codec || '----') + '; ' +
+            (ch.subscribed ? 'subscribed' : 'unsubscribed') + '; room ' + (ch.room || 'any') +
+            (ch.room && !ch.joined ? '; join first' : '') + ']';
+      }
+      if (/^\/objects\s/i.test(line) && typeof rrObjectReferences === 'function') {
+         const object = rrObjectReferences().find(o => o.symbol.toLowerCase() === name.toLowerCase() || o.uuid.toLowerCase() === name.toLowerCase());
+         if (object) label += ' — ' + object.type + ' ' + (object.name || object.symbol);
+      }
+      $('#completion-indicator').text(`🔍 COMPLETING: ${label}`).show();
    } else {
       $('#completion-indicator').hide();
    }

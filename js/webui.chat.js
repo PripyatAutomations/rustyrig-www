@@ -576,9 +576,15 @@ function parse_chat_cmd(e) {
                   ChatBox.Append('<div><span class="notice">' +
                      (codec_direction_tx ? 'TX' : 'RX') + ' codecs: ' +
                      'NONE ' + webui_audio_codec_list().join(' ') + '</span></div>');
+                  mediaLastList = Object.keys(mediaChannels);
+                  mediaLastList.forEach((uuid,index) => {
+                     const ch = mediaChannels[uuid];
+                     if (ch.subsystem === 1 && ch.dir === (codec_direction_tx ? 1 : 0) && (ch.subscribed || ch.disabled))
+                        mediaCommandNotice(mediaFormatChan(index+1,ch));
+                  });
                } else if (!webui_audio_set_codec(requested_codec, codec_direction_tx,
                   args.length > 2 ? args[2] : null)) {
-                  ChatBox.Append('<div><span class="error">Unsupported browser audio codec: ' +
+                  ChatBox.Append('<div><span class="error">Unknown/ambiguous channel or unsupported browser audio codec: ' +
                      requested_codec + '</span></div>');
                }
                break;
@@ -604,6 +610,10 @@ function parse_chat_cmd(e) {
                console.log("Unmuting RX audio");
                rxGainNode.gain.value = unmute_vol;
                break;
+            case 'objects':
+               if (args.length > 2) ChatBox.Append($('<div class="notice"></div>').text('Usage: /objects [symbol|uuid] (e.g. rig0 or rig0.A)'));
+               else rrObjectsList(args[1]);
+               break;
             case 'media':
                // PARITY: rustyrig-fw/rrclient/media.c: cmd_media()
                var sub = (args.length > 1 ? args[1].toLowerCase() : 'list');
@@ -616,38 +626,33 @@ function parse_chat_cmd(e) {
                } else if (sub === 'sub' || sub === 'subscribe' ||
                           sub === 'unsub' || sub === 'unsubscribe') {
                   if (args.length < 3 || args[2] === '') {
-                     ChatBox.Append('<div><span class="error">Usage: /media ' + sub + ' &lt;uuid|#&gt;</span></div>');
+                     ChatBox.Append('<div><span class="error">Usage: /media ' + sub + ' &lt;name|uuid|#number&gt;</span></div>');
                      break;
                   }
                   var chan = mediaChanLookup(args[2]);
                   var unsub = (sub.startsWith('un'));
 
                   if (!chan) {
-                     if (unsub) {
-                        ChatBox.Append('<div><span class="error">No such channel |' + args[2] + '|</span></div>');
-                     } else {
-                        // Not known locally: pass through, server may create one
-                        subscribeMediaChannel(args[2]);
-                     }
+                     mediaCommandNotice("Unknown or ambiguous channel '" + args[2] +
+                        "'; use /media list and choose a name, #number or UUID", true);
                      break;
                   }
+                  const label = chan.name || chan.uuid;
                   if (unsub) {
-                     if (!chan.subscribed) {
-                        ChatBox.Append('<div><span class="notice">Not subscribed to ' + chan.uuid + '</span></div>');
-                     } else {
-                        ChatBox.Append('<div><span class="notice">Unsubscribing from ' + chan.uuid + '</span></div>');
+                     if (!chan.subscribed) mediaCommandNotice('Not subscribed to ' + label);
+                     else {
+                        mediaCommandNotice('Unsubscribing from ' + label);
                         unsubscribeMediaChannel(chan.uuid);
                      }
                   } else {
-                     if (chan.subscribed) {
-                        ChatBox.Append('<div><span class="notice">Already subscribed to ' + chan.uuid + '</span></div>');
-                     } else {
-                        ChatBox.Append('<div><span class="notice">Subscribing to ' + chan.uuid + '</span></div>');
+                     if (chan.subscribed) mediaCommandNotice('Already subscribed to ' + label);
+                     else {
+                        mediaCommandNotice('Subscribing to ' + label);
                         subscribeMediaChannel(chan.uuid);
                      }
                   }
                } else {
-                  ChatBox.Append('<div><span class="error">Usage: /media [LIST | SUB|SUBSCRIBE &lt;uuid|#&gt; | UNSUB|UNSUBSCRIBE &lt;uuid|#&gt;]</span></div>');
+                  ChatBox.Append('<div><span class="error">Usage: /media [LIST | SUB|SUBSCRIBE &lt;name|uuid|#number&gt; | UNSUB|UNSUBSCRIBE &lt;name|uuid|#number&gt;]</span></div>');
                }
                break;
             case 'help':
@@ -670,6 +675,7 @@ function parse_chat_cmd(e) {
                ChatBox.Append('<div><span class="notice">&nbsp;/quit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Disconnect</span></div>');
 
                ChatBox.Append('<br/><div><span class="notice">*** RESOURCES - Discovery and Subscriptions</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/objects [rig0|rig0.A|uuid] - Inspect cached objects and readable properties</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/rig list - Show site, rigs, rooms, VFOs, media, GPS and permitted serial exports</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/rig subscribe | /rig unsubscribe - Start or stop UUID property updates (media subscriptions are separate)</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/gps list - Discover GPS services</span></div>');
@@ -677,8 +683,8 @@ function parse_chat_cmd(e) {
                ChatBox.Append('<div><span class="notice">&nbsp;/sercom remote - Discover permitted server serial exports; local serial/PTY attachments require the native client</span></div>');
 
                ChatBox.Append('<br/><div><span class="notice">*** AUDIO - Audio Settings</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/media&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Media channels: LIST | SUBSCRIBE &lt;uuid|#&gt; | UNSUBSCRIBE &lt;uuid|#&gt;</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/rxcodec [codec|NONE|LIST] [uuid|#number] | /txcodec [codec|NONE|LIST] [uuid|#number] - Select browser audio codec</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/media&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Media channels: LIST | SUBSCRIBE &lt;name|uuid|#number&gt; | UNSUBSCRIBE &lt;name|uuid|#number&gt;</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;/rxcodec [codec|NONE|LIST] [name|uuid|#number] | /txcodec [codec|NONE|LIST] [name|uuid|#number] - Select browser audio codec</span></div>');
             ChatBox.Append('<div><span class="notice">&nbsp;/rxvol&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Set volume in % [vol]</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/rxmute | /rxunmute&nbsp;&nbsp;&nbsp;- Mute/Unmute RX audio</span></div>');
 
