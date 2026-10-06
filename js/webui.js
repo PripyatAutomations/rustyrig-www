@@ -195,14 +195,14 @@ function webui_handle_ws_msg(event) {
          } else if (msgObj.error) {
             console.log("ERR:", msgObj);
             var msg = msgObj.error.msg || msgObj.error;
-            ChatBox.Append(`<div class="chat-status notice">ERROR: ${msg}</div>`);
+            ChatBox.Append(`<div class="chat-status notice">ERROR: ${webui_escape_html(msg)}</div>`);
             console.log("NOTICE:", msg);
          } else if (msgObj.hello) {
-            ChatBox.Append(`<div class="chat-status notice">Server version: ${msgObj.hello.swver} on ${msgObj.hello.hwver}</div>`);
+            ChatBox.Append(`<div class="chat-status notice">Server version: ${webui_escape_html(msgObj.hello.swver)} on ${webui_escape_html(msgObj.hello.hwver)}</div>`);
          } else if (msgObj.alert) {
-            var alert_from = (msgObj.alert.from || '***SERVER***').toUpperCase();
+            var alert_from = webui_escape_html((msgObj.alert.from || '***SERVER***').toUpperCase());
             var alert_ts = msgObj.alert.ts;
-            var alert_msg = msgObj.alert.msg;
+            var alert_msg = webui_escape_html(msgObj.alert.msg);
             var msg_ts = msg_timestamp(alert_ts);
 
             if (alert_from === '***SERVER***') {
@@ -222,7 +222,7 @@ function webui_handle_ws_msg(event) {
             webui_parse_callsign_msg(msgObj);
          } else if (msgObj.notice) {   // notices from ws_send_notice()
             var notice_ts = msg_timestamp(msgObj.msg.ts);
-            ChatBox.Append(`<div class="chat-status notice">${notice_ts}&nbsp;${msgObj.notice.msg}</div>`);
+            ChatBox.Append(`<div class="chat-status notice">${notice_ts}&nbsp;${webui_escape_html(msgObj.notice.msg)}</div>`);
          } else if (msgObj.ping) {		// Handle PING messages
             var ts = msgObj.msg ? msgObj.msg.ts : undefined;      // server's wall-clock ts, must be echoed back in msg.ts
             var mono_ts = msgObj.ping.ts;                        // monotonic us ts for RTT measurement

@@ -61,7 +61,7 @@ function chat_parameter_candidates(beforeCaret) {
    const arg = tokens.length;
    const first = (tokens[1] || '').toUpperCase();
    let values = [];
-   if (['/whois', '/kick', '/ban', '/mute', '/unmute', '/msg', '/query'].includes(command)) {
+   if (['/whois', '/kick', '/mute', '/unmute', '/msg', '/query'].includes(command)) {
       if (arg === 1) values = getCULNames();
    } else if (command === '/rig' || command === '/gps') {
       if (arg === 1) values = ['LIST', 'SUBSCRIBE', 'UNSUBSCRIBE'];
@@ -72,6 +72,12 @@ function chat_parameter_candidates(beforeCaret) {
       }
    } else if (command === '/sercom') {
       if (arg === 1) values = ['LIST', 'REMOTE', 'ATTACH', 'DISCONNECT'];
+   } else if (command === '/user') {
+      const staff = typeof webui_is_staff === 'function' && webui_is_staff(auth_privs);
+      if (arg === 1) values = staff ? ['LIST', 'ADD', 'REMOVE', 'LOCK', 'UNLOCK', 'PRIVS', 'OLDPW', 'RESETPW', 'PASS', 'HELP'] : ['PASS'];
+      if (arg === 2 && first === 'PASS') values = staff ? getCULNames() : [auth_user];
+      if (arg === 2 && staff && ['REMOVE', 'LOCK', 'UNLOCK', 'PRIVS', 'RESETPW'].includes(first)) values = getCULNames();
+      if (arg === 3 && staff && first === 'PRIVS') values = ['LIST', 'ADD', 'REMOVE', 'SET'];
    } else if (command === '/quota') {
       if (arg === 1) values = ['LIST', 'SHOW', 'ADD', 'RESET', 'SET', 'HELP'];
       if (arg === 1 || ['SHOW', 'RESET'].includes(first) ||

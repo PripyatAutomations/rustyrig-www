@@ -6,10 +6,16 @@
 //
 // Convert http(s) urls into clickable links
 function msg_create_links(message) {
-   return message.replace(
-      /(https?:\/\/[^\s]+)/g,
-      '<a href="$1" class="chat-link" target="_blank" rel="noopener">$1</a>'
-   );
+   const text = String(message);
+   const matches = text.matchAll(/https?:\/\/[^\s<>"']+/g);
+   let result = '', offset = 0;
+   for (const match of matches) {
+      result += webui_escape_html(text.slice(offset, match.index));
+      const url = webui_escape_html(match[0]);
+      result += '<a href="' + url + '" class="chat-link" target="_blank" rel="noopener noreferrer">' + url + '</a>';
+      offset = match.index + match[0].length;
+   }
+   return result + webui_escape_html(text.slice(offset));
 }
 
 // Callsign responses contain data returned by an external lookup service.
@@ -64,6 +70,294 @@ function webui_parse_callsign_msg(msgObj) {
 // sometimes as "true"/"false" strings (dict_add); handle both
 function parse_bool_field(val) {
    return val === true || val === 'true';
+}
+
+/* PARITY: rustyrig-fw/rrclient/cmd.c:client_cmds and cmd.help.c:cmd_help */
+const webui_help_sections = ['Connection', 'Chat and rooms', 'Radio and discovery',
+   'Media', 'Serial', 'Client settings', 'Administration'];
+const webui_command_help = [
+   {
+      "cmd": "help",
+      "help_section": "Connection",
+      "desc": "Show help message",
+      "admin": false
+   },
+   {
+      "cmd": "quit",
+      "help_section": "Connection",
+      "desc": "Exit (/quit [-yes|-y|y|yes] skips confirm)",
+      "admin": false
+   },
+   {
+      "cmd": "j",
+      "help_section": "Chat and rooms",
+      "desc": "Alias for /join",
+      "admin": false
+   },
+   {
+      "cmd": "join",
+      "help_section": "Chat and rooms",
+      "desc": "Join a channel",
+      "admin": false
+   },
+   {
+      "cmd": "list",
+      "help_section": "Chat and rooms",
+      "desc": "List available rooms",
+      "admin": false
+   },
+   {
+      "cmd": "me",
+      "help_section": "Chat and rooms",
+      "desc": "Send an action to the current channel",
+      "admin": false
+   },
+   {
+      "cmd": "msg",
+      "help_section": "Chat and rooms",
+      "desc": "Send a private message",
+      "admin": false
+   },
+   {
+      "cmd": "names",
+      "help_section": "Chat and rooms",
+      "desc": "List users with privilege flags",
+      "admin": false
+   },
+   {
+      "cmd": "part",
+      "help_section": "Chat and rooms",
+      "desc": "Leave a channel",
+      "admin": false
+   },
+   {
+      "cmd": "query",
+      "help_section": "Chat and rooms",
+      "desc": "Open a private message tab",
+      "admin": false
+   },
+   {
+      "cmd": "room",
+      "help_section": "Chat and rooms",
+      "desc": "/room list; add #room; remove #room [-f [-h]] [token]; #room vfo ...",
+      "admin": false
+   },
+   {
+      "cmd": "topic",
+      "help_section": "Chat and rooms",
+      "desc": "Get or set the current room topic",
+      "admin": false
+   },
+   {
+      "cmd": "whois",
+      "help_section": "Chat and rooms",
+      "desc": "Show client information",
+      "admin": false
+   },
+   {
+      "cmd": "gps",
+      "help_section": "Radio and discovery",
+      "desc": "GPS services: LIST | SUBSCRIBE <rig|station> | UNSUBSCRIBE <rig|station>",
+      "admin": false
+   },
+   {
+      "cmd": "grid",
+      "help_section": "Radio and discovery",
+      "desc": "Look up a grid square or coordinates",
+      "admin": false
+   },
+   {
+      "cmd": "object",
+      "help_section": "Radio and discovery",
+      "desc": "Inspect objects: /object [rig0|rig0.A|uuid]",
+      "admin": false
+   },
+   {
+      "cmd": "qrz",
+      "help_section": "Radio and discovery",
+      "desc": "Look up a callsign",
+      "admin": false
+   },
+   {
+      "cmd": "rig",
+      "help_section": "Radio and discovery",
+      "desc": "Radios and VFOs: LIST | SUBSCRIBE | UNSUBSCRIBE property updates",
+      "admin": false
+   },
+   {
+      "cmd": "media",
+      "help_section": "Media",
+      "desc": "Media channels: LIST | SUBSCRIBE <name|uuid|#> | UNSUBSCRIBE <name|uuid|#>",
+      "admin": false
+   },
+   {
+      "cmd": "rxcodec",
+      "help_section": "Media",
+      "desc": "RX codecs: [LIST | <codec>|NONE [uuid|#number]]",
+      "admin": false
+   },
+   {
+      "cmd": "rxvol",
+      "help_section": "Media",
+      "desc": "Set receive volume level",
+      "admin": false
+   },
+   {
+      "cmd": "txcodec",
+      "help_section": "Media",
+      "desc": "TX codecs: [LIST | <codec>|NONE [uuid|#number]]",
+      "admin": false
+   },
+   {
+      "cmd": "sercom",
+      "help_section": "Serial",
+      "desc": "LIST | REMOTE: discover permitted server serial exports; local attachments need the native client",
+      "admin": false
+   },
+   {
+      "cmd": "clear",
+      "help_section": "Client settings",
+      "desc": "Clear the scrollback",
+      "admin": false
+   },
+   {
+      "cmd": "config",
+      "help_section": "Client settings",
+      "desc": "Focus the configuration tab",
+      "admin": false
+   },
+   {
+      "cmd": "log",
+      "help_section": "Client settings",
+      "desc": "Switch to log tab",
+      "admin": false
+   },
+   {
+      "cmd": "die",
+      "help_section": "Administration",
+      "desc": "Shutdown the server",
+      "admin": true
+   },
+   {
+      "cmd": "kick",
+      "help_section": "Administration",
+      "desc": "Kick a user from the rig",
+      "admin": true
+   },
+   {
+      "cmd": "mute",
+      "help_section": "Administration",
+      "desc": "Mute a user",
+      "admin": true
+   },
+   {
+      "cmd": "quota",
+      "help_section": "Administration",
+      "desc": "TX quota admin (LIST|SHOW|ADD|RESET|SET)",
+      "admin": true
+   },
+   {
+      "cmd": "rehash",
+      "help_section": "Administration",
+      "desc": "Ask server to reload config & users",
+      "admin": true
+   },
+   {
+      "cmd": "restart",
+      "help_section": "Administration",
+      "desc": "Restart the server",
+      "admin": true
+   },
+   {
+      "cmd": "syslog",
+      "help_section": "Administration",
+      "desc": "Toggle server host log stream (/syslog on|off)",
+      "admin": true
+   },
+   {
+      "cmd": "unmute",
+      "help_section": "Administration",
+      "desc": "Unmute a user",
+      "admin": true
+   },
+   {
+      "cmd": "user",
+      "help_section": "Administration",
+      "desc": "PASS <your-user> <password>; admin/owner: manage accounts",
+      "admin": false
+   },
+   {
+      "cmd": "chat",
+      "help_section": "Client settings",
+      "desc": "Focus chat",
+      "admin": false
+   },
+   {
+      "cmd": "cfg",
+      "help_section": "Client settings",
+      "desc": "Focus configuration",
+      "admin": false
+   },
+   {
+      "cmd": "logout",
+      "help_section": "Connection",
+      "desc": "End session",
+      "admin": false
+   },
+   {
+      "cmd": "clearlog",
+      "help_section": "Client settings",
+      "desc": "Clear the log window",
+      "admin": false
+   },
+   {
+      "cmd": "clxfr",
+      "help_section": "Client settings",
+      "desc": "Clear file-transfer cache",
+      "admin": false
+   },
+   {
+      "cmd": "menu",
+      "help_section": "Chat and rooms",
+      "desc": "Show user menu",
+      "admin": false
+   },
+   {
+      "cmd": "reloadcss",
+      "help_section": "Client settings",
+      "desc": "Reload stylesheet",
+      "admin": false
+   },
+   {
+      "cmd": "rxmute",
+      "help_section": "Media",
+      "desc": "Mute receive audio",
+      "admin": false
+   },
+   {
+      "cmd": "rxunmute",
+      "help_section": "Media",
+      "desc": "Unmute receive audio",
+      "admin": false
+   }
+];
+
+function webui_is_staff(privileges) {
+   return String(privileges || '').split(',').some(priv => ['admin', 'owner'].includes(priv.trim()));
+}
+
+function webui_show_help() {
+   const staff = webui_is_staff(auth_privs);
+   webui_help_sections.forEach(section => {
+      const entries = webui_command_help.filter(entry => entry.help_section === section && (!entry.admin || staff))
+         .sort((a, b) => a.cmd.localeCompare(b.cmd));
+      if (!entries.length) return;
+      ChatBox.Append('<div class="chat-status notice"><b>' + webui_escape_html(section) + '</b></div>');
+      entries.forEach(entry => ChatBox.Append('<div class="chat-status notice">/' +
+         webui_escape_html(entry.cmd) + ' — ' + webui_escape_html(entry.desc) + '</div>'));
+   });
+   ChatBox.Append('<div class="chat-status notice">Undashed rooms may be created by any authenticated account. Dashed station rooms, restoration, removal and VFO mappings require admin/owner. Removal needs a confirmation token: -f deletes metadata/bindings; -f -h also deletes chat history. Rig PTT logs and recordings remain.</div>');
+   ChatBox.Append('<div class="chat-status notice">Codec changes require matching rx/tx account privileges and VFO room membership. Chain rig commands: !mode lsb freq 7200. Use Tab for command/resource completion.</div>');
 }
 
 class WebUiChat {
@@ -227,6 +521,7 @@ function cul_offline() {
 function parse_userinfo_reply(message) {
 //    console.log("parse_userinfo_reply:", message);
     if (typeof message !== 'undefined') {
+       if (message.talk.user === auth_user && message.talk.privs !== undefined) auth_privs = message.talk.privs;
        // Server sends the PTT state as talk.tx (see srv.chat.c: ws_send_userinfo)
        // PARITY: rrclient/events.c rrclient_handle_userinfo().
        const tx = message.talk.tx !== undefined ? message.talk.tx : message.talk.ptt;
@@ -293,8 +588,8 @@ function cul_render() {
 
        // render the user item (li)
        const userItem = `<li>
-          <span class="chat-user-list" onclick="show_user_menu('${user.name}')">
-             ${badges}<span class="${cul_class}">${user.name}</span>${tx_badges}
+          <span class="chat-user-list" onclick="${webui_escape_html('show_user_menu(' + JSON.stringify(user.name) + ');')}">
+             ${badges}<span class="${cul_class}">${webui_escape_html(user.name)}</span>${tx_badges}
           </span>
        </li>`;
 
@@ -318,7 +613,7 @@ function show_reason_modal(cmd, username) {
    const textarea = document.getElementById("reason-text");
    const title = document.getElementById("reason-title");
 
-   title.textContent = `Enter ${cmd} reason for ${username}`;
+   title.textContent = `Enter ${cmd} reason for ${webui_escape_html(username)}`;
    textarea.value = "";
 
    modal.style.display = "block";
@@ -339,7 +634,7 @@ function show_reason_modal(cmd, username) {
 }
 
 function show_user_menu(username) {
-    var isAdmin = /admin/.test(auth_privs);
+    var isAdmin = webui_is_staff(auth_privs);
 
     form_disable(true);
 
@@ -351,7 +646,6 @@ function show_user_menu(username) {
          <button class="cul-menu-button unmute-user" title="Unmute (enable CAT/TX) for user">Unmute</button>
         </li>
         <li><button class="cul-menu-button kick-user" title="Disconnect user">Kick</button></li>
-        <li><button class="cul-menu-button ban-user" title="Ban & Kick user">Ban</button></li>
     `;
 
     // Base menu
@@ -361,7 +655,7 @@ function show_user_menu(username) {
         <div class="um-header" style="position: relative;">
             <span class="um-close">✖</span>
         </div><br/>
-        <center>User: ${username}</center><br/>
+        <center>User: ${webui_escape_html(username)}</center><br/>
         <span class="user-menu-items">
             <ul>
 <!--                <li><a href="mailto:${user_email}" target="_blank">Email</a></li> -->
@@ -376,7 +670,7 @@ function show_user_menu(username) {
 
     var user = UserCache.get(username);
     // if user is in the cache, see if they have muted property set
-    if (typeof user !== 'undefined') {
+    if (user) {
        $('.mute-user').on('click', function() {
           chat_send_command('mute', { target: username });
           form_disable(false);
@@ -512,6 +806,9 @@ function parse_chat_cmd(e) {
                   chat_msg = true;
                   msg_type = "priv";
                }
+               break;
+            case 'topic':
+               args_obj = {target: ChatBox.current_room, data: args.slice(1).join(' ')};
                break;
             case 'list':
             case 'join':
@@ -657,67 +954,7 @@ function parse_chat_cmd(e) {
                }
                break;
             case 'help':
-               ChatBox.Append('<div><span class="notice">*** HELP *** All commands start with /</span></div>');
-               ChatBox.Append('<div><span class="notice">/chat | /cfg | /config | /log to switch tabs</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/quit&nbsp;&nbsp;-&nbsp;End session</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/clear&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Clear chat scrollback</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/help&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- This help message</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/me&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Show message as an ACTION in chat</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/menu&nbsp;&nbsp;&nbsp;&nbsp;- Show the user menu &lt;user&gt;</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/whois&nbsp;&nbsp;&nbsp;- Show user information: &lt;user&gt;</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/query user&nbsp;- Open a private message tab</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/msg user text - Send a private message</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/qrz&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Look up a callsign: &lt;callsign&gt; [NOCACHE]</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/grid&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Look up a grid square or coordinates: &lt;grid|lat,lon&gt;</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/list&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- List available rooms</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/join #room&nbsp;&nbsp;- Join a room</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/part #room&nbsp;&nbsp;- Leave a room</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;RX/TX codec changes require the matching account rx/tx privilege and VFO room membership.</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/room list|add #room|remove #room [-f [-h]] [token]|#room vfo ... - Manage rooms and room/VFO mappings</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;Room changes require admin/owner; removal requires a server confirmation token. Default: hide and preserve data. -f: delete room record/bindings; -f -h: also delete chat history. /room add restores hidden rooms. Rig PTT logs and recordings remain.</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/quit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Disconnect</span></div>');
-
-               ChatBox.Append('<br/><div><span class="notice">*** RESOURCES - Discovery and Subscriptions</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/object [rig0|rig0.A|uuid] - Inspect cached objects and readable properties</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/rig list - List radios and their VFOs</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/rig subscribe | /rig unsubscribe - Start or stop UUID property updates (media subscriptions are separate)</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/gps list - Discover GPS services</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;!mode lsb freq 7200 - Chain rig commands on one line</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/gps subscribe|unsubscribe &lt;rig-alias|station&gt; - Start or stop NMEA output</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/sercom [list|remote] - Discover permitted server serial exports; local serial/PTY attachments require the native client</span></div>');
-
-               ChatBox.Append('<br/><div><span class="notice">*** AUDIO - Audio Settings</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/media&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Media channels: LIST | SUBSCRIBE &lt;name|uuid|#number&gt; | UNSUBSCRIBE &lt;name|uuid|#number&gt;</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/rxcodec [codec|NONE|LIST] [name|uuid|#number] | /txcodec [codec|NONE|LIST] [name|uuid|#number] - Select browser audio codec</span></div>');
-            ChatBox.Append('<div><span class="notice">&nbsp;/rxvol&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Set volume in % [vol]</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/rxmute | /rxunmute&nbsp;&nbsp;&nbsp;- Mute/Unmute RX audio</span></div>');
-
-               //////
-               ChatBox.Append('<br/><div><span class="notice">*** DEBUG TOOLS - Used by developer</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/clearlog&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Clear the syslog window</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/clxfr&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Clear file xfer cache</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/names&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Force refresh of UserCache</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/reloadcss&nbsp;&nbsp;- Reload the CSS (stylesheet) without restarting the app.</span></div>');
-               ChatBox.Append('<div><span class="notice">&nbsp;/syslog&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Toggle syslog traffic [on|off].</span></div>');
-
-               var isAdmin = /(owner|admin)/.test(auth_privs);
-               if (isAdmin) {
-                  ChatBox.Append('<br/><div><span class="notice">*** ADMIN HELP *** These commands are only available to admins/owners.</span></div>');
-                  ChatBox.Append('<div><span class="notice">&nbsp;/ban&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Ban a user from logging in: &lt;user&gt; &lt;reason&gt;</span></div>');
-                  ChatBox.Append('<div><span class="notice">&nbsp;/die&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Shut down the server &lt;reason&gt;</span></div>');
-                  ChatBox.Append('<div><span class="notice">/edit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Edit a user: &lt;user&gt;</span></div>');
-                  ChatBox.Append('<div><span class="notice">&nbsp;/kick&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Kick a user: &lt;user&gt; &lt;reason&gt;</span></div>');
-                  ChatBox.Append('<div><span class="notice">&nbsp;/mute&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Mute a user, disables their TX and chat: &lt;user&gt; &lt;reason&gt;</span></div>');
-                  ChatBox.Append('<div><span class="notice">&nbsp;/quota&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- TX quota admin (bare /quota = list+help): LIST | SHOW &lt;user&gt;... | ADD &lt;user&gt; &lt;mins&gt; | RESET &lt;user&gt;... | SET &lt;user&gt; &lt;mins&gt;</span></div>');
-                  ChatBox.Append('<div><span class="notice">&nbsp;/rehash&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Reload the server configuration &amp; user database</span></div>');
-                  ChatBox.Append('<div><span class="notice">&nbsp;/restart&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Restart the server &lt;reason&gt;</span></div>');
-                  ChatBox.Append('<div><span class="notice">&nbsp;/unmute&nbsp;&nbsp;&nbsp;- Unmute a user, enables their TX (if privileged): &lt;user&gt;</span></div>');
-               } else {
-                  ChatBox.Append('<div><span class="notice">*********************************************</span></div>');
-                  ChatBox.Append('<div><span class="notice">*** Additional commands are available to OWNER and ADMIN class users. ***</span></div>');
-                  ChatBox.Append('<div><span class="notice">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Contact the sysop to request more privileges, if needed.</span></div>');
-               }
-               ChatBox.Append('<br/><div><span class="notice">You can use tab completion, press @ then type a few letters or hit tab</span></div>');
+               webui_show_help();
                break;
             case 'me':	// /me shows an ACTION in the chat
                message = message.slice(4);
@@ -729,7 +966,6 @@ function parse_chat_cmd(e) {
             //   It will respond if allowed or not    //
             ////////////////////////////////////////////
             case 'kick':
-            case 'ban':
             case 'mute':
             case 'names':
                if (args.length >= 2) {
@@ -744,7 +980,6 @@ function parse_chat_cmd(e) {
                }
                break;
 
-            case 'edit':
             case 'syslog':
             case 'unmute':
             case 'whois':
@@ -755,6 +990,9 @@ function parse_chat_cmd(e) {
                }
                break;
 
+            case 'user':
+               args_obj = {data: args.slice(1).join(' ')};
+               break;
             case 'quota':
                // PARITY: rustyrig-fw/rrclient/cmd.admin.c: cmd_quota()
                // Server checks admin/owner privs; sends the raw tail as data
@@ -919,11 +1157,10 @@ const UserCache = {
 };
 
 function user_link(username) {
-   if (username === auth_user) {
-      return `<a href="#" class="my-link" onclick="show_user_menu('${username.replace(/'/g, "\\'")}'); return false;">${username}</a>`;
-   } else {
-      return `<a href="#" class="other-link" onclick="show_user_menu('${username.replace(/'/g, "\\'")}'); return false;">${username}</a>`;
-   }
+   const className = username === auth_user ? 'my-link' : 'other-link';
+   const action = 'show_user_menu(' + JSON.stringify(String(username)) + '); return false;';
+   return '<a href="#" class="' + className + '" onclick="' + webui_escape_html(action) + '">' +
+      webui_escape_html(username) + '</a>';
 }
 
 /*
@@ -1029,6 +1266,10 @@ function webui_parse_chat_msg(msgObj) {
       ChatBox.RemoveRoom(targetRoom);
    }
 
+   if (cmd === 'topic') {
+      append('<div class="chat-status notice">Topic: ' + webui_escape_html(msgObj.talk.topic || '(none)') + '</div>');
+      return;
+   }
    if (cmd === 'room-list') {
       append('<div><span class="notice">Available rooms: ' +
          webui_escape_html(msgObj.talk.rooms || '(none)') + '</span></div>');
@@ -1056,7 +1297,8 @@ function webui_parse_chat_msg(msgObj) {
    } else if (cmd === 'replay-complete' || cmd === 'replay-completed') {
       append('<div>' + msg_ts + ' *** Chat replay End ***</div>');
    } else if (cmd === 'msg' && message) {
-      var sender = msgObj.talk.from;
+      var rawSender = msgObj.talk.from;
+      var sender = webui_escape_html(rawSender || "");
       var msg_type = msgObj.talk.msg_type;
 
       if (msg_type === "file_chunk") {
@@ -1064,7 +1306,7 @@ function webui_parse_chat_msg(msgObj) {
       } else if (msg_type === "action" || msg_type == "pub") {
          message = msg_create_links(message);
          // Don't play a bell or set highlight on SelfMsgs
-         if (sender === auth_user) {
+         if (rawSender === auth_user) {
             if (msg_type === 'action') {
                append('<div>' + msg_ts + ' <span class="chat-my-msg-prefix">&nbsp;==>&nbsp;</span>***&nbsp;' + sender + '&nbsp;***&nbsp;<span class="chat-my-msg">' + message + '</span></div>');
             } else if (msg_type === 'pub') {
@@ -1084,9 +1326,9 @@ function webui_parse_chat_msg(msgObj) {
       } else if (msg_type === "priv" || msg_type === "privmsg") {
          message = msg_create_links(message);
          append('<div>' + msg_ts + ' <span class="chat-msg-prefix">*' +
-            webui_escape_html(sender || '') + '*&nbsp;</span><span class="chat-msg">' +
+            sender + '*&nbsp;</span><span class="chat-msg">' +
             message + '</span></div>');
-         if (sender !== auth_user) {
+         if (rawSender !== auth_user) {
             play_notify_bell();
             set_highlight("chat");
          }
@@ -1176,7 +1418,7 @@ function webui_parse_chat_msg(msgObj) {
             }
          }
 
-         append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + user + '&nbsp;</span><span class="chat-msg">disconnected: ' + reason + '</span>&nbsp;***</div>');
+         append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">' + webui_escape_html(user) + '&nbsp;</span><span class="chat-msg">disconnected: ' + webui_escape_html(reason) + '</span>&nbsp;***</div>');
       } else {
          console.log("got %s for undefined user, ignoring", cmd);
       }
@@ -1205,21 +1447,21 @@ function webui_parse_chat_msg(msgObj) {
          append(`<div>${who_ts}&nbsp;<span class="chat-msg-prefix">***&nbsp;</span><span class="${cls || 'chat-msg'}">${text}</span></div>`);
       };
 
-      who_line(`Whois for <b>${username}</b>`, 'notice');
-      who_line(`Email:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${msgObj.talk.email || 'none'}`);
-      who_line(`Privileges:&nbsp;&nbsp;${msgObj.talk.privs || 'None'}`);
+      who_line(`Whois for <b>${webui_escape_html(username)}</b>`, 'notice');
+      who_line(`Email:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${webui_escape_html(msgObj.talk.email || 'none')}`);
+      who_line(`Privileges:&nbsp;&nbsp;${webui_escape_html(msgObj.talk.privs || 'None')}`);
       if (parse_bool_field(msgObj.talk.muted)) {
          who_line(`This user is currently MUTEd. Rigctl is temporarily suspended.`, 'error');
       }
-      who_line(`Sessions:&nbsp;&nbsp;&nbsp;&nbsp;${msgObj.talk.sessions || 0}`);
+      who_line(`Sessions:&nbsp;&nbsp;&nbsp;&nbsp;${webui_escape_html(msgObj.talk.sessions || 0)}`);
       if (msgObj.talk.connected) {
          who_line(`Connected:&nbsp;&nbsp;&nbsp;${new Date(msgObj.talk.connected * 1000).toLocaleString()}`);
       }
       if (msgObj.talk.last_heard) {
          who_line(`Last heard:&nbsp;&nbsp;${new Date(msgObj.talk.last_heard * 1000).toLocaleString()}`);
       }
-      who_line(`Client:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${msgObj.talk.ua || 'unknown'}`);
-      who_line(`End of WHOIS ${username}`, 'notice');
+      who_line(`Client:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${webui_escape_html(msgObj.talk.ua || 'unknown')}`);
+      who_line(`End of WHOIS ${webui_escape_html(username)}`, 'notice');
    } else {
       console.log("Unknown talk command:", cmd, "msg:", msgData);
    }
