@@ -157,7 +157,7 @@ function handle_binary_frame(event) {
       return;
    }
 
-   var sentence = binframe_nmea_sentence(f);
+   var sentence = binframe_gps_position(f);
    if (sentence !== null) {
       window.dispatchEvent(new CustomEvent('rustyrig:gps-nmea', {detail: {nmea: sentence, rig: f.rig, stream: f.stream}}));
       return;

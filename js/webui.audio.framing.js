@@ -17,20 +17,31 @@ function makeAudioFrame(chan_id, seq, payload) {
     return buf;
 }
 
-// PARITY: rrclient/media.c gps_frame; MODEM/nmea is a read-only GPS channel.
-function binframe_nmea_sentence(frame) {
-   if (!frame || frame.subsystem !== 4 || frame.codec !== 'nmea' ||
-       frame.dir !== 0 || frame.vfo !== 255 ||
-       !frame.stream || !frame.payload.length || frame.payload.length > 511) return null;
-   var text = '';
-   for (var i = 0; i < frame.payload.length; i++) {
-      var byte = frame.payload[i];
-      if (!byte || byte > 126) return null;
-      text += String.fromCharCode(byte);
+// PARITY: rrclient/media.c gps_frame/gps_sentence; MODEM/gpsp carries a position record.
+function binframe_gps_position(frame, date) {
+   if (!frame || frame.subsystem !== 4 || frame.codec !== 'gpsp' ||
+       frame.dir !== 0 || frame.vfo !== 255 || !frame.stream || frame.payload.length !== 9) return null;
+   var view = new DataView(frame.payload.buffer, frame.payload.byteOffset, frame.payload.byteLength);
+   var lat = view.getInt32(0, false), lon = view.getInt32(4, false), flags = frame.payload[8];
+   if (lat < -900000 || lat > 900000 || lon < -1800000 || lon > 1800000 || (flags & ~3)) return null;
+   date = date || new Date();
+   var pad = function (n, width) { return String(n).padStart(width, '0'); };
+   var utc = pad(date.getUTCHours(), 2) + pad(date.getUTCMinutes(), 2) + pad(date.getUTCSeconds(), 2);
+   var day = pad(date.getUTCDate(), 2) + pad(date.getUTCMonth() + 1, 2) + pad(date.getUTCFullYear() % 100, 2);
+   var angle = function (value, width) {
+      var absolute = Math.abs(value), degrees = Math.floor(absolute / 10000000);
+      var minutes = Math.floor(((absolute % 10000000) * 60 + 5) / 10);
+      if (minutes === 60000000) { degrees++; minutes = 0; }
+      return pad(degrees, width) + pad(Math.floor(minutes / 1000000), 2) + '.' + pad(minutes % 1000000, 6);
+   };
+   var body;
+   if (flags & 1) {
+      body = 'GPRMC,' + utc + ',A,' + angle(lat, 2) + ',' + (lat < 0 ? 'S' : 'N') + ',' +
+         angle(lon, 3) + ',' + (lon < 0 ? 'W' : 'E') + ',0.0,,' + day + ',,,' + ((flags & 2) ? 'M' : 'A');
+   } else {
+      body = 'GPRMC,' + utc + ',V,,,,,0.0,,' + day + ',,,N';
    }
-   text = text.replace(/[\r\n]+$/, '');
-   if (!/^[!$][^*\r\n]+\*[0-9a-fA-F]{2}$/.test(text)) return null;
-   var star = text.length - 3, checksum = 0;
-   for (var j = 1; j < star; j++) checksum ^= text.charCodeAt(j);
-   return checksum === parseInt(text.slice(star + 1), 16) ? text : null;
+   var checksum = 0;
+   for (var i = 0; i < body.length; i++) checksum ^= body.charCodeAt(i);
+   return '$' + body + '*' + checksum.toString(16).toUpperCase().padStart(2, '0');
 }
