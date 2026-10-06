@@ -579,6 +579,7 @@ function parse_chat_cmd(e) {
                   mediaLastList = Object.keys(mediaChannels);
                   mediaLastList.forEach((uuid,index) => {
                      const ch = mediaChannels[uuid];
+                     if (!mediaResourceMatches(ChatBox.current_room,ch.controlRoom || ch.room)) return;
                      if (ch.subsystem === 1 && ch.dir === (codec_direction_tx ? 1 : 0) && (ch.subscribed || ch.disabled))
                         mediaCommandNotice(mediaFormatChan(index+1,ch));
                   });

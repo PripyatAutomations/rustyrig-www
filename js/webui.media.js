@@ -29,6 +29,16 @@ function mediaRoomMatches(entry) {
 function mediaRoomPolicy(room) {
    return typeof webui_room_controls !== 'undefined' ? webui_room_controls[room] : null;
 }
+// PARITY: rrclient/resource.context.h rrclient_resource_matches.
+function mediaResourceMatches(context, room) {
+   if (!context || context[0] !== '#') return true;
+   if (!room) return false;
+   context = context.toLowerCase(); room = room.toLowerCase();
+   const rig = context.match(/^(.*-rig[0-9]+)(?:\..+)?$/);
+   if (rig) return room === rig[1] || room.startsWith(rig[1] + '.');
+   return room === context || (room.startsWith(context + '-rig') &&
+      /^[0-9]+(?:\..+)?$/.test(room.slice(context.length + 4)));
+}
 function mediaSameRig(room, base) {
    return !!room && !!base && (room.toLowerCase() === base.toLowerCase() ||
       room.toLowerCase().startsWith(base.toLowerCase() + '.'));
@@ -314,13 +324,15 @@ function mediaListChannels() {
       console.log("media:", uuids.length, "channels known");
       return;
    }
-   if (uuids.length === 0) {
-      ChatBox.Append('<div><span class="notice">No media channels known yet (server may not have announced any).</span></div>',ChatBox.current_room);
+   const visible = uuids.filter(uuid => mediaResourceMatches(ChatBox.current_room,mediaChannels[uuid].controlRoom || mediaChannels[uuid].room));
+   if (visible.length === 0) {
+      ChatBox.Append('<div><span class="notice">No media channels match this window.</span></div>',ChatBox.current_room);
       return;
    }
-   ChatBox.Append('<div><span class="notice">*** Media channels (' + uuids.length + ') ***</span></div>',ChatBox.current_room);
+   ChatBox.Append('<div><span class="notice">*** Media channels (' + visible.length + ') ***</span></div>',ChatBox.current_room);
    for (var i = 0; i < uuids.length; i++) {
       var chan = mediaChannels[uuids[i]];
+      if (!visible.includes(uuids[i])) continue;
       mediaCommandNotice(mediaFormatChan(i + 1, chan));
    }
 }

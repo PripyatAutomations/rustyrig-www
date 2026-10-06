@@ -67,7 +67,7 @@ function chat_parameter_candidates(beforeCaret) {
       if (arg === 1) values = ['LIST', 'SUBSCRIBE', 'UNSUBSCRIBE'];
       if (command === '/gps' && arg === 2 && ['SUBSCRIBE','UNSUBSCRIBE'].includes(first)) {
          const channels = typeof mediaChannels === 'undefined' ? {} : mediaChannels;
-         values = Object.values(channels).filter(ch => ch.codec === 'gpsp' && ch.name?.endsWith('.gps.rx') &&
+         values = Object.values(channels).filter(ch => (typeof mediaResourceMatches !== 'function' || mediaResourceMatches(ChatBox.current_room,ch.controlRoom || ch.room)) && ch.codec === 'gpsp' && ch.name?.endsWith('.gps.rx') &&
             (first !== 'UNSUBSCRIBE' || ch.subscribed)).map(ch => ch.name.slice(0,-7));
       }
    } else if (command === '/sercom') {
@@ -89,6 +89,7 @@ function chat_parameter_candidates(beforeCaret) {
          const channels = typeof mediaChannels === 'undefined' ? {} : mediaChannels;
          const numbers = typeof mediaLastList === 'undefined' ? [] : mediaLastList;
          Object.keys(channels).forEach(uuid => {
+            if (typeof mediaResourceMatches === 'function' && !mediaResourceMatches(ChatBox.current_room,channels[uuid].controlRoom || channels[uuid].room)) return;
             if (media ? (first.startsWith('UN') && !channels[uuid].subscribed) :
                 (channels[uuid].subsystem !== 1 || channels[uuid].dir !== (tx ? 1 : 0) || (!channels[uuid].subscribed && !channels[uuid].disabled))) return;
             const named = channels[uuid].name && !/\s/.test(channels[uuid].name) && Object.values(channels).filter(ch =>
@@ -102,7 +103,9 @@ function chat_parameter_candidates(beforeCaret) {
       }
    } else if (command === '/objects') {
       if (arg === 1 && typeof rrObjectReferences === 'function') {
-         for (const object of rrObjectReferences()) {
+         const objects = rrObjectReferences();
+         for (const object of objects) {
+            if (typeof rrObjectInContext === 'function' && !rrObjectInContext(object,objects,ChatBox.current_room)) continue;
             const named = object.symbol && !/\s/.test(object.symbol);
             if (named) values.push(object.symbol);
             if (word || !named) values.push(object.uuid);

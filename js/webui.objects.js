@@ -126,7 +126,16 @@ function rrInventoryMessage(message) {
    if (cmd !== 'inventory-entry' && cmd !== 'inventory-end') return false;
    const id = message.request?.id;
    if (!rrInventoryRequests.has(id)) return true;
-   const room = rrInventoryRequests.get(id);
+   const pending = rrInventoryRequests.get(id);
+   const room = pending.room;
+   if (cmd === 'inventory-entry') {
+      const entry = message.inventory || {}, depth = Number(entry.depth);
+      if (!Number.isInteger(depth) || depth < 0 || depth > 4) return true;
+      pending.visible[depth] = !room || room[0] !== '#' ||
+         (['site','rig'].includes(entry.kind) ? mediaResourceMatches(room,entry.room) :
+          depth > 0 && pending.visible[depth - 1]);
+      if (!pending.visible[depth]) return true;
+   }
    const line = cmd === 'inventory-end' ? 'End of resource tree. /rig subscribe|unsubscribe controls property updates; /media and /gps manage streams.' : rrInventoryLine(message.inventory || {});
    if (line !== null) ChatBox.Append($('<div class="notice" style="white-space:pre-wrap"></div>').text(line), room);
    if (cmd === 'inventory-end') rrInventoryRequests.delete(id);
@@ -144,7 +153,7 @@ function rrRigCommand(args) {
          return;
       }
       rrInventoryId = id;
-      rrInventoryRequests.set(id,ChatBox.current_room || (typeof webui_authoritative_room !== 'undefined' ? webui_authoritative_room : '#rig'));
+      rrInventoryRequests.set(id,{room: ChatBox.current_room || (typeof webui_authoritative_room !== 'undefined' ? webui_authoritative_room : '#rig'), visible: []});
    }
    socket.send(JSON.stringify({msg: {type: 'object'}, object: {cmd}, request: {id}}));
 }
@@ -170,6 +179,15 @@ function rrObjectReferences() {
       return {...o, symbol: o.type === 'vfo' && owner ? (owner.alias || owner.uuid) + '.' + o.alias : (o.alias || o.uuid)};
    });
 }
+// PARITY: rrclient/objects.c object_in_context.
+function rrObjectInContext(object, objects, room) {
+   let owner = object;
+   for (let depth = 0; owner && depth < 3; depth++) {
+      if (owner.room) return mediaResourceMatches(room,owner.room);
+      owner = objects.find(parent => parent.uuid === owner.owner);
+   }
+   return mediaResourceMatches(room,null);
+}
 // PARITY: rrclient/objects.c rr_object_cache_dump_selected.
 function rrObjectsList(reference) {
    const room = ChatBox.current_room;
@@ -188,6 +206,7 @@ function rrObjectsList(reference) {
    const emit = line => ChatBox.Append($('<div class="notice" style="white-space:pre-wrap"></div>').text(line),room);
    emit(rrObjectCache.ready ? 'Object snapshot complete' : 'Object snapshot incomplete');
    for (const o of objects) {
+      if (!reference && !rrObjectInContext(o,objects,room)) continue;
       if (selected && o !== selected && o.owner !== selected.uuid) continue;
       emit(o.type + ' ' + symbols.get(o.uuid) + ' — ' + (o.name || symbols.get(o.uuid)) +
          (o.backend ? ' / ' + o.backend : '') + ' (uuid=' + o.uuid + ')');

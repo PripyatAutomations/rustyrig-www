@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const displayed = [];
 const destinations = [];
-const ctx = {console, ChatBox: {current_room: "#commands", Append: (row,room) => { destinations.push(room); displayed.push(typeof row === 'string' ? row : row.value); }},
+const ctx = {console, ChatBox: {current_room: "commands", Append: (row,room) => { destinations.push(room); displayed.push(typeof row === 'string' ? row : row.value); }},
    $: () => ({val() { return 1; }, change() { return this; }, addClass() { return this; }, text(value) { this.value = value; return this; }})};
 ctx.AudioContext = class { createGain() { return {gain: {}, connect() {}}; } };
 ctx.window = ctx;ctx.webui_inits = [];ctx.document = {addEventListener() {}};
@@ -44,11 +44,11 @@ assert(displayed.some(line => line.includes('rig0.vfo_a.rx') && line.includes('M
 assert(displayed.some(line => line.includes('<GPS>') && line.includes('[join room first]')));
 ctx.rrObjectCache.ready = true;
 ctx.rrObjectCache.dump = () => [
-   {uuid: 'rig-id', type: 'rig', alias: 'rig0', name: 'Main transceiver', backend: 'hamlib', properties: []},
+   {uuid: 'rig-id', room: '#station-rig0', type: 'rig', alias: 'rig0', name: 'Main transceiver', backend: 'hamlib', properties: []},
    {uuid: 'vfo-id', type: 'vfo', alias: 'A', owner: 'rig-id', properties: [
       {name: 'frequency', descriptor: {unit: 'Hz', writable: true}, state: {known: true, value: 14074000, available: true}}
    ]},
-   {uuid: 'other-id', type: 'rig', alias: 'rig1', name: 'Other radio', properties: []}
+   {uuid: 'other-id', room: '#elsewhere-rig1', type: 'rig', alias: 'rig1', name: 'Other radio', properties: []}
 ];
 displayed.length = 0;
 assert(ctx.rrObjectsList('rig0'));
@@ -66,4 +66,24 @@ ctx.updateCompletionIndicator('rig0.vfo_a.rx');
 assert(completionLabel.includes('Main receiver') && completionLabel.includes('RX opus') && completionLabel.includes('#station-rig0'));
 
 assert(destinations.length > 0);
-assert(destinations.every(room => room === "#commands"));
+assert(destinations.every(room => room === "commands"));
+
+ctx.$ = () => ({val() { return 1; }, change() { return this; }, addClass() { return this; }, text(value) { this.value=value; return this; }});
+ctx.ChatBox.current_room = '#station-rig0.rx';displayed.length=0;
+ctx.mediaListChannels();
+assert(displayed.some(line => line.includes('Main receiver')));
+assert(!displayed.some(line => line.includes('<GPS>')));
+displayed.length=0;assert(ctx.rrObjectsList());
+assert(displayed.some(line => line.includes('vfo rig0.A')));
+assert(!displayed.some(line => line.includes('Other radio')));
+ctx.ChatBox.current_room = '#station';displayed.length=0;ctx.mediaListChannels();
+assert(displayed.some(line => line.includes('Main receiver')) && displayed.some(line => line.includes('<GPS>')));
+ctx.ChatBox.current_room = 'status';displayed.length=0;assert(ctx.rrObjectsList());
+assert(displayed.some(line => line.includes('Other radio')));
+assert.equal(ctx.mediaResourceMatches('#station-rig1.rx','#station-rig10'),false);
+assert.equal(ctx.mediaResourceMatches('#station','#stationary-rig1'),false);
+console.log('PASS: site, rig RX room and status resource filters');
+
+ctx.ChatBox.current_room='#station-rig0.rx';
+assert(ctx.chat_parameter_candidates('/media SUB ').includes('rig0.vfo_a.rx'));
+assert(!ctx.chat_parameter_candidates('/media SUB ').includes('station.gps.rx'));
