@@ -23,7 +23,7 @@ function binframe_gps_position(frame, date) {
        frame.dir !== 0 || frame.vfo !== 255 || !frame.stream || frame.payload.length !== 9) return null;
    var view = new DataView(frame.payload.buffer, frame.payload.byteOffset, frame.payload.byteLength);
    var lat = view.getInt32(0, false), lon = view.getInt32(4, false), flags = frame.payload[8];
-   if (lat < -900000 || lat > 900000 || lon < -1800000 || lon > 1800000 || (flags & ~3)) return null;
+   if (lat < -900000000 || lat > 900000000 || lon < -1800000000 || lon > 1800000000 || (flags & ~3)) return null;
    date = date || new Date();
    var pad = function (n, width) { return String(n).padStart(width, '0'); };
    var utc = pad(date.getUTCHours(), 2) + pad(date.getUTCMinutes(), 2) + pad(date.getUTCSeconds(), 2);
@@ -44,4 +44,20 @@ function binframe_gps_position(frame, date) {
    var checksum = 0;
    for (var i = 0; i < body.length; i++) checksum ^= body.charCodeAt(i);
    return '$' + body + '*' + checksum.toString(16).toUpperCase().padStart(2, '0');
+}
+
+// PARITY: rrclient/media.c gps_frame; explicit MODEM/nmea subscriptions only.
+function binframe_gps_nmea(frame) {
+   if (!frame || frame.subsystem !== 4 || frame.codec !== 'nmea' || frame.dir !== 0 ||
+       frame.vfo !== 255 || !frame.stream || !frame.payload.length || frame.payload.length > 509) return null;
+   let text = '';
+   for (const byte of frame.payload) {
+      if (byte < 32 || byte > 126) return null;
+      text += String.fromCharCode(byte);
+   }
+   if (!/^[!$][^*]+\*[0-9a-fA-F]{2}$/.test(text)) return null;
+   const end = text.indexOf('*');
+   let checksum = 0;
+   for (let i = 1; i < end; i++) checksum ^= text.charCodeAt(i);
+   return checksum === parseInt(text.slice(end + 1), 16) ? text : null;
 }

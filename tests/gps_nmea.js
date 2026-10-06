@@ -19,7 +19,12 @@ assert.match(ctx.binframe_gps_position(frame(0, 0, 0), utc), /^\$GPRMC,123519,V,
 assert.equal(ctx.binframe_gps_position({...frame(), dir: 1}, utc), null);
 assert.equal(ctx.binframe_gps_position({...frame(), codec: 'nmea'}, utc), null);
 assert.equal(ctx.binframe_gps_position({...frame(), stream: 0}, utc), null);
-assert.equal(ctx.binframe_gps_position(frame(900001, 0, 1), utc), null);
+assert.equal(ctx.binframe_gps_position(frame(900000001, 0, 1), utc), null);
 assert.equal(ctx.binframe_gps_position(frame(0, 0, 4), utc), null);
 assert.equal(ctx.binframe_gps_position({...frame(), payload: new Uint8Array(8)}, utc), null);
 console.log('PASS: browser gpsp position validation and synthesized RMC/checksum');
+
+const raw = {...frame(), codec: 'nmea', payload: new TextEncoder().encode('$GPGLL*50')};
+assert.equal(ctx.binframe_gps_nmea(raw), '$GPGLL*50');
+assert.equal(ctx.binframe_gps_nmea({...raw, dir: 1}), null);
+assert.equal(ctx.binframe_gps_nmea({...raw, payload: new TextEncoder().encode('$GPGLL*00')}), null);

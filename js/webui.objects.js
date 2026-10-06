@@ -140,7 +140,7 @@ function rrGpsCommand(args) {
    const verb = (args[1] || 'list').toLowerCase();
    if (verb === 'list' && args.length <= 2) { rrRigCommand(['rig', 'list']); return; }
    if (args.length === 3 && ['subscribe', 'unsubscribe'].includes(verb)) {
-      const entry = Object.values(mediaChannels).find(ch => ch.name === args[2] + '.gps.rx' && ch.codec === 'nmea');
+      const entry = Object.values(mediaChannels).find(ch => ch.name === args[2] + '.gps.rx' && ch.codec === 'gpsp');
       if (entry) {
          entry.disabled = verb === 'unsubscribe';
          if (entry.disabled) unsubscribeMediaChannel(entry.uuid); else subscribeMediaChannel(entry.uuid, false);
