@@ -672,6 +672,7 @@ function parse_chat_cmd(e) {
                ChatBox.Append('<div><span class="notice">&nbsp;/list&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- List available rooms</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/join #room&nbsp;&nbsp;- Join a room</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/part #room&nbsp;&nbsp;- Leave a room</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;RX/TX codec changes require the matching account rx/tx privilege and VFO room membership.</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/room list|add #room|remove #room [-f [-h]] [token]|#room vfo ... - Manage rooms and room/VFO mappings</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;Room changes require admin/owner; removal requires a server confirmation token. Default: hide and preserve data. -f: delete room record/bindings; -f -h: also delete chat history. /room add restores hidden rooms. Rig PTT logs and recordings remain.</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/quit&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- Disconnect</span></div>');
