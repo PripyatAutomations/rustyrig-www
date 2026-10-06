@@ -77,7 +77,9 @@ function chat_parameter_candidates(beforeCaret) {
       if (arg === 1 || ['SHOW', 'RESET'].includes(first) ||
           (arg === 2 && ['ADD', 'SET'].includes(first))) values = values.concat(getCULNames());
    } else if (command === '/room') {
-      if (arg === 1) values = ['LIST', '#'];
+      if (arg === 1) values = ['LIST', 'ADD', 'REMOVE', '#'];
+      else if (arg === 2 && ['ADD', 'REMOVE'].includes(first.toUpperCase())) values = ['#'];
+      else if (arg >= 3 && first.toUpperCase() === 'REMOVE') values = ['--force', '--history', '-f', '-h'];
       else if (arg === 2 && first.startsWith('#')) values = ['ADD', 'REMOVE', 'VFO'];
       else if (arg === 3 && tokens[2] && tokens[2].toUpperCase() === 'VFO') values = ['ADD', 'LIST', 'REMOVE'];
    } else if (command === '/media' || command === '/rxcodec' || command === '/txcodec') {

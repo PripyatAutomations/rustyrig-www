@@ -23,4 +23,9 @@ assert.deepEqual(candidates('/media SUB rx-a '), []);
 assert.deepEqual(candidates('/rxcodec NONE rig0'), ['rig0.vfo_a.rx']);
 assert.deepEqual(candidates('/txcodec NONE rig0'), []);
 assert.deepEqual(candidates('/syslog of'), ['off']);
+assert.deepEqual(candidates('/room re'), ['REMOVE']);
+assert.deepEqual(candidates('/room add '), ['#']);
+assert.deepEqual(candidates('/room remove #test --f'), ['--force']);
+assert.deepEqual(candidates('/room remove #test -f --h'), ['--history']);
+
 console.log('PASS: browser command parameter completion parity');
