@@ -2,7 +2,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const displayed = [];
-const ctx = {console, ChatBox: {Append: row => displayed.push(typeof row === 'string' ? row : row.value)},
+const destinations = [];
+const ctx = {console, ChatBox: {current_room: "#commands", Append: (row,room) => { destinations.push(room); displayed.push(typeof row === 'string' ? row : row.value); }},
    $: () => ({val() { return 1; }, change() { return this; }, addClass() { return this; }, text(value) { this.value = value; return this; }})};
 ctx.AudioContext = class { createGain() { return {gain: {}, connect() {}}; } };
 ctx.window = ctx;ctx.webui_inits = [];ctx.document = {addEventListener() {}};
@@ -63,3 +64,6 @@ let completionLabel;
 ctx.$ = () => ({val() { return '/media SUB '; }, text(value) { completionLabel=value; return this; }, show() { return this; }});
 ctx.updateCompletionIndicator('rig0.vfo_a.rx');
 assert(completionLabel.includes('Main receiver') && completionLabel.includes('RX opus') && completionLabel.includes('#station-rig0'));
+
+assert(destinations.length > 0);
+assert(destinations.every(room => room === "#commands"));

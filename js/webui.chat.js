@@ -575,7 +575,7 @@ function parse_chat_cmd(e) {
                if (requested_codec === 'list') {
                   ChatBox.Append('<div><span class="notice">' +
                      (codec_direction_tx ? 'TX' : 'RX') + ' codecs: ' +
-                     'NONE ' + webui_audio_codec_list().join(' ') + '</span></div>');
+                     'NONE ' + webui_audio_codec_list().join(' ') + '</span></div>',ChatBox.current_room);
                   mediaLastList = Object.keys(mediaChannels);
                   mediaLastList.forEach((uuid,index) => {
                      const ch = mediaChannels[uuid];
@@ -585,7 +585,7 @@ function parse_chat_cmd(e) {
                } else if (!webui_audio_set_codec(requested_codec, codec_direction_tx,
                   args.length > 2 ? args[2] : null)) {
                   ChatBox.Append('<div><span class="error">Unknown/ambiguous channel or unsupported browser audio codec: ' +
-                     requested_codec + '</span></div>');
+                     requested_codec + '</span></div>',ChatBox.current_room);
                }
                break;
             }
@@ -611,7 +611,7 @@ function parse_chat_cmd(e) {
                rxGainNode.gain.value = unmute_vol;
                break;
             case 'objects':
-               if (args.length > 2) ChatBox.Append($('<div class="notice"></div>').text('Usage: /objects [symbol|uuid] (e.g. rig0 or rig0.A)'));
+               if (args.length > 2) ChatBox.Append($('<div class="notice"></div>').text('Usage: /objects [symbol|uuid] (e.g. rig0 or rig0.A)'),ChatBox.current_room);
                else rrObjectsList(args[1]);
                break;
             case 'media':
@@ -626,7 +626,7 @@ function parse_chat_cmd(e) {
                } else if (sub === 'sub' || sub === 'subscribe' ||
                           sub === 'unsub' || sub === 'unsubscribe') {
                   if (args.length < 3 || args[2] === '') {
-                     ChatBox.Append('<div><span class="error">Usage: /media ' + sub + ' &lt;name|uuid|#number&gt;</span></div>');
+                     ChatBox.Append('<div><span class="error">Usage: /media ' + sub + ' &lt;name|uuid|#number&gt;</span></div>',ChatBox.current_room);
                      break;
                   }
                   var chan = mediaChanLookup(args[2]);
@@ -652,7 +652,7 @@ function parse_chat_cmd(e) {
                      }
                   }
                } else {
-                  ChatBox.Append('<div><span class="error">Usage: /media [LIST | SUB|SUBSCRIBE &lt;name|uuid|#number&gt; | UNSUB|UNSUBSCRIBE &lt;name|uuid|#number&gt;]</span></div>');
+                  ChatBox.Append('<div><span class="error">Usage: /media [LIST | SUB|SUBSCRIBE &lt;name|uuid|#number&gt; | UNSUB|UNSUBSCRIBE &lt;name|uuid|#number&gt;]</span></div>',ChatBox.current_room);
                }
                break;
             case 'help':

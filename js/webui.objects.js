@@ -102,6 +102,7 @@ class RRObjectCache {
 var rrObjectCache = new RRObjectCache();
 function rrObjectsSubscribe() {
    rrObjectCache.clear();
+   rrInventoryRequests.clear();
    socket.send(JSON.stringify({msg: {type: 'object'}, object: {cmd: 'snapshot'}, request: {id: 'initial-objects'}}));
 }
 // Browser-console diagnostic: rrObjectsDump().
@@ -111,6 +112,7 @@ if (typeof module !== 'undefined') module.exports = { RRObjectCache };
 // PARITY: rrclient/objects.events.c. Inventory is a one-shot view; it does
 // not replace, clear, or subscribe the UUID property cache.
 var rrInventoryRequest = 0, rrInventoryId = '';
+var rrInventoryRequests = new Map();
 function rrInventoryLine(entry) {
    const depth = Number(entry.depth);
    if (!Number.isInteger(depth) || depth < 0 || depth > 4) return null;
@@ -122,18 +124,28 @@ function rrInventoryLine(entry) {
 function rrInventoryMessage(message) {
    const cmd = message.object?.cmd;
    if (cmd !== 'inventory-entry' && cmd !== 'inventory-end') return false;
-   if (message.request?.id !== rrInventoryId) return true;
+   const id = message.request?.id;
+   if (!rrInventoryRequests.has(id)) return true;
+   const room = rrInventoryRequests.get(id);
    const line = cmd === 'inventory-end' ? 'End of resource tree. /rig subscribe|unsubscribe controls property updates; /media and /gps manage streams.' : rrInventoryLine(message.inventory || {});
-   if (line !== null) ChatBox.Append($('<div class="notice" style="white-space:pre-wrap"></div>').text(line));
+   if (line !== null) ChatBox.Append($('<div class="notice" style="white-space:pre-wrap"></div>').text(line), room);
+   if (cmd === 'inventory-end') rrInventoryRequests.delete(id);
    return true;
 }
 function rrRigCommand(args) {
    const verb = (args[1] || 'list').toLowerCase();
    const cmd = {list: 'inventory', subscribe: 'snapshot', unsubscribe: 'unsubscribe'}[verb];
-   if (!cmd || args.length > 2) { ChatBox.Append($('<div class="notice"></div>').text('Usage: /rig list|subscribe|unsubscribe')); return; }
+   if (!cmd || args.length > 2) { ChatBox.Append($('<div class="notice"></div>').text('Usage: /rig list|subscribe|unsubscribe'),ChatBox.current_room); return; }
    if (!window.socket || socket.readyState !== WebSocket.OPEN) return;
    const id = 'rig-' + (++rrInventoryRequest);
-   if (cmd === 'inventory') rrInventoryId = id;
+   if (cmd === 'inventory') {
+      if (rrInventoryRequests.size >= 32) {
+         ChatBox.Append($('<div class="notice"></div>').text('Wait for an outstanding resource listing to finish'),ChatBox.current_room);
+         return;
+      }
+      rrInventoryId = id;
+      rrInventoryRequests.set(id,ChatBox.current_room || (typeof webui_authoritative_room !== 'undefined' ? webui_authoritative_room : '#rig'));
+   }
    socket.send(JSON.stringify({msg: {type: 'object'}, object: {cmd}, request: {id}}));
 }
 function rrGpsCommand(args) {
@@ -147,7 +159,7 @@ function rrGpsCommand(args) {
          return;
       }
    }
-   ChatBox.Append($('<div class="notice"></div>').text('Usage: /gps list|subscribe|unsubscribe <rig-alias|station>; use /rig list to discover outputs'));
+   ChatBox.Append($('<div class="notice"></div>').text('Usage: /gps list|subscribe|unsubscribe <rig-alias|station>; use /rig list to discover outputs'),ChatBox.current_room);
 }
 if (typeof module !== 'undefined') Object.assign(module.exports, {rrInventoryLine});
 
@@ -160,6 +172,7 @@ function rrObjectReferences() {
 }
 // PARITY: rrclient/objects.c rr_object_cache_dump_selected.
 function rrObjectsList(reference) {
+   const room = ChatBox.current_room;
    const objects = rrObjectReferences();
    const symbols = new Map(objects.map(o => [o.uuid,o.symbol]));
    let selected;
@@ -167,12 +180,12 @@ function rrObjectsList(reference) {
       const exact = objects.find(o => o.uuid.toLowerCase() === reference.toLowerCase());
       const matches = exact ? [exact] : objects.filter(o => symbols.get(o.uuid).toLowerCase() === reference.toLowerCase());
       if (matches.length !== 1) {
-         ChatBox.Append($('<div class="notice"></div>').text('Unknown or ambiguous object ' + reference + '; use /objects to choose a qualified symbol or UUID'));
+         ChatBox.Append($('<div class="notice"></div>').text('Unknown or ambiguous object ' + reference + '; use /objects to choose a qualified symbol or UUID'),room);
          return false;
       }
       selected = matches[0];
    }
-   const emit = line => ChatBox.Append($('<div class="notice" style="white-space:pre-wrap"></div>').text(line));
+   const emit = line => ChatBox.Append($('<div class="notice" style="white-space:pre-wrap"></div>').text(line),room);
    emit(rrObjectCache.ready ? 'Object snapshot complete' : 'Object snapshot incomplete');
    for (const o of objects) {
       if (selected && o !== selected && o.owner !== selected.uuid) continue;

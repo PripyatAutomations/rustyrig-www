@@ -285,7 +285,7 @@ function mediaChanLookup(ref) {
 }
 
 function mediaCommandNotice(text, error = false) {
-   ChatBox.Append($('<div></div>').addClass(error ? 'error' : 'notice').text(text));
+   ChatBox.Append($('<div></div>').addClass(error ? 'error' : 'notice').text(text),ChatBox.current_room);
 }
 
 // Format one channel entry for display
@@ -315,10 +315,10 @@ function mediaListChannels() {
       return;
    }
    if (uuids.length === 0) {
-      ChatBox.Append('<div><span class="notice">No media channels known yet (server may not have announced any).</span></div>');
+      ChatBox.Append('<div><span class="notice">No media channels known yet (server may not have announced any).</span></div>',ChatBox.current_room);
       return;
    }
-   ChatBox.Append('<div><span class="notice">*** Media channels (' + uuids.length + ') ***</span></div>');
+   ChatBox.Append('<div><span class="notice">*** Media channels (' + uuids.length + ') ***</span></div>',ChatBox.current_room);
    for (var i = 0; i < uuids.length; i++) {
       var chan = mediaChannels[uuids[i]];
       mediaCommandNotice(mediaFormatChan(i + 1, chan));
