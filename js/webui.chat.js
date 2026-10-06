@@ -680,6 +680,7 @@ function parse_chat_cmd(e) {
                ChatBox.Append('<div><span class="notice">&nbsp;/rig list - List radios and their VFOs</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/rig subscribe | /rig unsubscribe - Start or stop UUID property updates (media subscriptions are separate)</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/gps list - Discover GPS services</span></div>');
+               ChatBox.Append('<div><span class="notice">&nbsp;!mode lsb freq 7200 - Chain rig commands on one line</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/gps subscribe|unsubscribe &lt;rig-alias|station&gt; - Start or stop NMEA output</span></div>');
                ChatBox.Append('<div><span class="notice">&nbsp;/sercom [list|remote] - Discover permitted server serial exports; local serial/PTY attachments require the native client</span></div>');
 
