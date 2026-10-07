@@ -24,6 +24,12 @@ function webui_room_rejoin_candidates(openRooms, availableRooms, joinedRooms) {
    return Array.from(candidates.values());
 }
 
+function webui_rejoin_open_rooms(openRooms, availableRooms, joinedRooms, sendJoin) {
+   const rooms = webui_room_rejoin_candidates(openRooms, availableRooms, joinedRooms);
+   rooms.forEach(room => sendJoin(room));
+   return rooms;
+}
+
 function chat_history_add(line) {
    if (!line) {
       return;

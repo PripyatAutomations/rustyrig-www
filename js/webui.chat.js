@@ -1281,8 +1281,8 @@ function webui_parse_chat_msg(msgObj) {
       const joinedRooms = Object.keys(roomControls).filter(room => roomControls[room].joined);
       const openRooms = typeof ChatBox !== 'undefined' && ChatBox.rooms ?
          Object.keys(ChatBox.rooms) : [];
-      webui_room_rejoin_candidates(openRooms, webui_available_rooms, joinedRooms)
-         .forEach(room => socket.send(JSON.stringify({
+      webui_rejoin_open_rooms(openRooms, webui_available_rooms, joinedRooms, room =>
+         socket.send(JSON.stringify({
             msg: { type: 'talk' }, talk: { cmd: 'join', target: room }
          })));
       append('<div><span class="notice">Available rooms: ' +
