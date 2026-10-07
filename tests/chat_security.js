@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
+const path = require('node:path');
 const output = [];
 const context = {console, auth_user: 'alice', auth_privs: 'view,chat', auth_token: 'token',
    webui_authoritative_room: '#site', msg_timestamp: () => 'time',
@@ -9,7 +10,7 @@ const context = {console, auth_user: 'alice', auth_privs: 'view,chat', auth_toke
    $: () => ({data: () => false, val: () => 1})};
 context.window = context;
 vm.createContext(context);
-vm.runInContext(fs.readFileSync('www/js/webui.chat.js', 'utf8'), context);
+vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'webui.chat.js'), 'utf8'), context);
 assert.equal(context.msg_create_links('<img src=x onerror=evil()>'), '&lt;img src=x onerror=evil()&gt;');
 const linked = context.msg_create_links('https://host/?a=1&b=2" onclick="evil() <svg/onload=evil()>');
 assert.match(linked, /href="https:\/\/host\/\?a=1&amp;b=2"/);
@@ -33,6 +34,7 @@ for (const [privs, staff] of [['view,chat',false],['notadmin',false],['owner',tr
    assert.equal(rendered.includes('/syslog —'),staff);
    assert(rendered.includes('/user —'));
    assert(!rendered.includes('/ban') && !rendered.includes('/edit'));
+   assert(rendered.includes('style="color: #ff0000"><b>Media</b>'));
    assert(rendered.indexOf('<b>Media</b>') < rendered.indexOf('/media —'));
    assert(rendered.indexOf('/media —') < rendered.indexOf('/rxcodec —'));
 }

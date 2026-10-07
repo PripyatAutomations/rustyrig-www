@@ -352,7 +352,7 @@ function webui_show_help() {
       const entries = webui_command_help.filter(entry => entry.help_section === section && (!entry.admin || staff))
          .sort((a, b) => a.cmd.localeCompare(b.cmd));
       if (!entries.length) return;
-      ChatBox.Append('<div class="chat-status notice"><b>' + webui_escape_html(section) + '</b></div>');
+      ChatBox.Append('<div class="chat-status notice" style="color: #ff0000"><b>' + webui_escape_html(section) + '</b></div>');
       entries.forEach(entry => ChatBox.Append('<div class="chat-status notice">/' +
          webui_escape_html(entry.cmd) + ' — ' + webui_escape_html(entry.desc) + '</div>'));
    });
