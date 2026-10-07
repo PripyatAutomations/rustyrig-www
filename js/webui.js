@@ -104,6 +104,11 @@ function ws_connect() {
    /* NOTE: On error sorts this out for us */
    socket.onclose = function() {
       rrObjectCache.clear();
+      if (typeof webui_room_controls !== 'undefined') {
+         Object.keys(webui_room_controls).forEach(room => {
+            webui_room_controls[room].joined = false;
+         });
+      }
       if (typeof webui_stop_microphone === 'function') {
          webui_stop_microphone();
       }

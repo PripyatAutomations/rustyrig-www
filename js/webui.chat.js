@@ -452,6 +452,7 @@ class WebUiChat {
 }
 
 var webui_authoritative_room = null;
+var webui_available_rooms = [];
 
 if (!window.webui_inits) {
    window.webui_inits = [];
@@ -1274,6 +1275,16 @@ function webui_parse_chat_msg(msgObj) {
       return;
    }
    if (cmd === 'room-list') {
+      webui_available_rooms = String(msgObj.talk.rooms || '').split(/\s+/)
+         .filter(room => room.startsWith('#') || room.startsWith('&'));
+      const roomControls = typeof webui_room_controls !== 'undefined' ? webui_room_controls : {};
+      const joinedRooms = Object.keys(roomControls).filter(room => roomControls[room].joined);
+      const openRooms = typeof ChatBox !== 'undefined' && ChatBox.rooms ?
+         Object.keys(ChatBox.rooms) : [];
+      webui_room_rejoin_candidates(openRooms, webui_available_rooms, joinedRooms)
+         .forEach(room => socket.send(JSON.stringify({
+            msg: { type: 'talk' }, talk: { cmd: 'join', target: room }
+         })));
       append('<div><span class="notice">Available rooms: ' +
          webui_escape_html(msgObj.talk.rooms || '(none)') + '</span></div>');
       return;
@@ -1285,6 +1296,7 @@ function webui_parse_chat_msg(msgObj) {
       return;
    }
    if (cmd === 'room-removed') {
+      if (targetRoom) webui_available_rooms = webui_available_rooms.filter(room => room !== targetRoom);
       if (targetRoom) ChatBox.RemoveRoom(targetRoom);
       ChatBox.Append('<div><span class="notice">Room removed: ' +
          webui_escape_html(targetRoom || '(unknown)') + '</span></div>');

@@ -12,6 +12,18 @@ let inputHistory = [];
 let inputHistoryIndex = -1;   // -1 means "at the prompt" (no entry recalled)
 const INPUT_HISTORY_MAX = 50; // HISTORY_LINES in tui.h
 
+function webui_room_rejoin_candidates(openRooms, availableRooms, joinedRooms) {
+   const available = new Set((availableRooms || []).map(room => room.toLowerCase()));
+   const joined = new Set((joinedRooms || []).map(room => room.toLowerCase()));
+   const candidates = new Map();
+   (openRooms || []).forEach(room => {
+      if (!room || (room[0] !== '#' && room[0] !== '&')) return;
+      const key = room.toLowerCase();
+      if (available.has(key) && !joined.has(key)) candidates.set(key, room);
+   });
+   return Array.from(candidates.values());
+}
+
 function chat_history_add(line) {
    if (!line) {
       return;
@@ -61,7 +73,14 @@ function chat_parameter_candidates(beforeCaret) {
    const arg = tokens.length;
    const first = (tokens[1] || '').toUpperCase();
    let values = [];
-   if (['/whois', '/kick', '/mute', '/unmute', '/msg', '/query'].includes(command)) {
+   if (command === '/join' || command === '/j') {
+      if (arg === 1) {
+         const joined = typeof ChatBox !== 'undefined' && ChatBox.rooms ?
+            Object.keys(ChatBox.rooms).filter(room => room.startsWith('#') || room.startsWith('&')) : [];
+         const available = typeof webui_available_rooms !== 'undefined' ? webui_available_rooms : [];
+         values = [...new Set([...joined, ...available])];
+      }
+   } else if (['/whois', '/kick', '/mute', '/unmute', '/msg', '/query'].includes(command)) {
       if (arg === 1) values = getCULNames();
    } else if (command === '/rig' || command === '/gps') {
       if (arg === 1) values = ['LIST', 'SUBSCRIBE', 'UNSUBSCRIBE'];

@@ -216,6 +216,7 @@ function webui_parse_auth_msg(msgObj) {
                msg: { type: "talk" }, talk: { cmd: "join", target: room }
             }));
          });
+         socket.send(JSON.stringify({ msg: { type: "talk" }, talk: { cmd: "list" } }));
          rrObjectsSubscribe();
 
          // The browser advertises the codecs it can decode.  RX and TX are

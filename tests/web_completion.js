@@ -3,17 +3,29 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const ctx = {
    auth_user: "alice", auth_privs: "view,chat", webui_is_staff: value => value.split(",").some(p => ["owner","admin"].includes(p)),
+   ChatBox: {rooms: {'#station-rig0': '', '&local-room': '', '#missing': '', alice: ''},
+      Append() {}, ensure_room() {}, RemoveRoom() {}, current_room: '#station-rig0'},
+   webui_room_controls: {'#station-rig0': {joined: true}},
+   socket: {sent: [], send(data) { this.sent.push(JSON.parse(data)); }},
+   webui_inits: [],
+   webui_available_rooms: ['#discovered-room', '#station-rig0'],
    UserCache: {get_all: () => [{name: 'alice'}, {name: 'bob'}]},
    mediaChannels: {'rx-a': {name: 'rig0.vfo_a.rx', subsystem: 1, dir: 0, subscribed: true}, 'rx-b': {name: 'rig1.vfo_a.rx', subscribed: false}},
    mediaLastList: ['rx-a', 'rx-b']
 };
+ctx.window = ctx;
 vm.createContext(ctx);
+vm.runInContext(fs.readFileSync('www/js/webui.chat.js', 'utf8'), ctx);
 vm.runInContext(fs.readFileSync('www/js/webui.chat.completion.js', 'utf8'), ctx);
 function candidates(line) { return Array.from(ctx.chat_parameter_candidates(line) || []); }
 assert.deepEqual(candidates('/sercom at'), ['ATTACH']);
 assert.deepEqual(candidates('/sercom di'), ['DISCONNECT']);
 assert.deepEqual(candidates('/whois a'), ['alice']);
 assert.deepEqual(candidates('/whois alice a'), []);
+assert.deepEqual(candidates('/join #sta'), ['#station-rig0']);
+assert.deepEqual(candidates('/join #disc'), ['#discovered-room']);
+assert.deepEqual(candidates('/j &local'), ['&local-room']);
+assert.deepEqual(candidates('/join alice'), []);
 assert.deepEqual(candidates('/quota SET alice '), []);
 assert.deepEqual(candidates('/quota SHOW a'), ['alice']);
 assert.deepEqual(candidates('/media SUB '), ['rig0.vfo_a.rx', 'rig1.vfo_a.rx']);
@@ -28,6 +40,11 @@ assert.deepEqual(candidates('/room re'), ['REMOVE']);
 assert.deepEqual(candidates('/room add '), ['#']);
 assert.deepEqual(candidates('/room remove #test --f'), ['--force']);
 assert.deepEqual(candidates('/room remove #test -f --h'), ['--history']);
+assert.deepEqual(Array.from(ctx.webui_room_rejoin_candidates(
+   ['#joined', '#missing', 'private-user', '&local'],
+   ['#joined', '#missing', '&local'], ['#joined'])), ['#missing', '&local']);
+ctx.webui_parse_chat_msg({msg:{ts:1},talk:{cmd:'room-list',rooms:'#station-rig0 #discovered-room'}});
+assert.deepEqual(ctx.socket.sent.map(message => message.talk.target), ['&local-room', '#discovered-room']);
 
 assert.deepEqual(candidates('/user '), ['PASS']);
 assert.deepEqual(candidates('/user PASS '), ['alice']);
