@@ -82,3 +82,9 @@ context.rrObjectCache = {objects: new Map([
 ])};
 context.webui_refresh_room_vfo();
 assert.equal(label, 'USB');
+
+context.active_vfo = 'B';
+context.webui_parse_cat_msg({cat: {state: {vfo: 'A', active: true}}});
+assert.equal(context.active_vfo, 'B', 'hardware polls must not select the client VFO');
+context.webui_parse_cat_msg({cat: {state: {vfo: 'A', selected: true}}});
+assert.equal(context.active_vfo, 'A', 'session acknowledgement selects its VFO');

@@ -285,7 +285,7 @@ function webui_parse_cat_msg(msgObj) {
       var freq = msgObj.cat.freq;
       if (typeof freq !== 'undefined' && freq > 0) {
          $('span#vfo-' + vfo + '-freq').html(format_freq(freq) + '&nbsp;Hz');
-         freq_set_digits(freq, $('#rig-freq'));
+         if (vfo.toUpperCase() === active_vfo) freq_set_digits(freq, $('#rig-freq'));
          $('.vfo-changed').removeClass('vfo-changed');
       }
    } else if (cmd === 'mode') {  // broadcast of a user mode change
@@ -304,10 +304,10 @@ function webui_parse_cat_msg(msgObj) {
 
       const { freq, mode, ptt, width, vfo, power }  = state;
 
-      // The server is authoritative about which VFO is active (!vfo switches
-      // it server-side and broadcasts cat.state.active with each cat.state).
-      // PARITY: rrclient/vfo.c vfo_set_dict() (cat.state.active handling)
-      if (state.active) {
+      // Only this session's selection acknowledgement changes its controls.
+      // Hardware-active polls describe the radio, not the selected UI VFO.
+      // PARITY: rrclient/vfo.c vfo_set_dict() (cat.state.selected)
+      if (parse_bool_field(state.selected)) {
          active_vfo = vfo;
          ptt_active = Boolean(ptt_by_vfo[active_vfo]);
          if (typeof mediaSyncActiveVfo === 'function') mediaSyncActiveVfo();
@@ -329,7 +329,7 @@ function webui_parse_cat_msg(msgObj) {
       if (typeof freq !== 'undefined') {
          $('span#vfo-' + vfo_id + '-freq').html(format_freq(freq) + '&nbsp;Hz');
          let $input = $('#rig-freq');
-         freq_set_digits(freq, $input);
+         if (vfo_id.toUpperCase() === active_vfo) freq_set_digits(freq, $input);
          $('.vfo-changed').removeClass('vfo-changed');
       }
 
