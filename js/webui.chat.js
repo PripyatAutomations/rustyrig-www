@@ -531,6 +531,7 @@ function parse_userinfo_reply(message) {
           privs: message.talk.privs, muted: parse_bool_field(message.talk.muted),
           ptt: parse_bool_field(message.talk.tx !== undefined ? message.talk.tx : message.talk.ptt),
           ptt_room: message.talk['ptt-room'] || '',
+          ptt_vfo: message.talk['ptt-vfo'] || '',
           sessions: message.talk.sessions });
     }
 
@@ -1082,6 +1083,7 @@ const UserCache = {
       // I dont remember why this is done as such; ideally we should duplicate user object into this.users[user.name] directly
       this.users[user.name] = {
          ...(user.hasOwnProperty('ptt')   && { ptt:   user.ptt }),
+         ...(user.hasOwnProperty('ptt_vfo') && { ptt_vfo: user.ptt_vfo }),
          ...(user.hasOwnProperty('ptt_room') && { ptt_room: user.ptt_room }),
          ...(user.hasOwnProperty('muted') && { muted: user.muted }),
          ...(user.hasOwnProperty('privs') && { privs: user.privs }),
@@ -1117,6 +1119,7 @@ const UserCache = {
          return;
       }
       if ('ptt'   in user) existing.ptt   = user.ptt;
+      if ('ptt_vfo' in user) existing.ptt_vfo = user.ptt_vfo;
       if ('ptt_room' in user) existing.ptt_room = user.ptt_room;
       if ('privs' in user) existing.privs = user.privs;
       if ('muted' in user) existing.muted = user.muted;

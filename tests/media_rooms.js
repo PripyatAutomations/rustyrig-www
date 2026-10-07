@@ -54,3 +54,20 @@ assert.equal(ctx.active_vfo, 'A');
 assert.equal(ctx.mediaChannels['rx-b'].joined, false);
 assert.equal(ctx.mediaChannels['rx-b'].subscribed, false);
 console.log('PASS: mapped RX subrooms select only owned VFOs and preserve the selected view');
+
+ctx.mediaChannels = {};
+ctx.mediaJoinRoom('#site-rig0');
+ctx.webui_parse_media_msg({media: {cmd: 'available', 'chan-uuid': 'shared-rx',
+   subsys: 1, dir: 0, vfo: 255, rig: 0, room: '#site-rig0',
+   'control-room': '#site-rig0', joined: true, codec: 'pc16'}});
+assert.equal(ctx.mediaChannels['shared-rx'].subscribed, true);
+const beforeShared = sent.length;
+ctx.active_vfo = 'B';
+ctx.mediaSyncActiveVfo();
+assert.equal(sent.length, beforeShared);
+ctx.mediaSelectRoom('#site-rig0.monitor');
+assert.equal(ctx.mediaChannels['shared-rx'].subscribed, true);
+ctx.webui_room_controls['#rig1'] = {joined: true, vfoMask: 1};
+ctx.mediaSelectRoom('#rig1');
+assert.equal(ctx.mediaChannels['shared-rx'].subscribed, false);
+console.log('PASS: shared rig audio survives A/B selection and respects rig/subroom membership');

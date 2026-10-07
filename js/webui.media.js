@@ -47,7 +47,7 @@ function mediaProjectRxRoom(entry, room) {
    const policy = mediaRoomPolicy(room);
    if (entry.dir !== 0 || !policy || !policy.joined || !mediaSameRig(room, entry.controlRoom)) return;
    entry.room = room;
-   entry.joined = entry.vfo < 26 && !!(policy.vfoMask & (1 << entry.vfo));
+   entry.joined = entry.vfo === 0xFF ? !!policy.vfoMask : entry.vfo < 26 && !!(policy.vfoMask & (1 << entry.vfo));
 }
 
 // PARITY: rrclient/media.c rrclient_media_room_joined/parted.
@@ -155,7 +155,7 @@ function mediaTryAutosubscribe(entry) {
 // The server chooses the initial codec when the first subscriber joins. Do
 // not send a codec request here; only reflect the confirmed stream format.
 function mediaApplyConfirmedCodec(entry) {
-   if (!entry || !mediaRoomMatches(entry) || !entry.codec || entry.vfo !== vfoLetterToId(activeVfoId())) {
+   if (!entry || !mediaRoomMatches(entry) || !entry.codec || (entry.vfo !== 0xFF && entry.vfo !== vfoLetterToId(activeVfoId()))) {
       return;
    }
    if (entry.dir === 1 && typeof audio_codec_tx !== 'undefined') {
@@ -173,8 +173,8 @@ function mediaSyncActiveVfo() {
    var active = vfoLetterToId(activeVfoId());
    Object.keys(mediaChannels).forEach(function(uuid) {
       var entry = mediaChannels[uuid];
-      if (!entry || entry.subsystem !== 0x01 || entry.vfo === 0xFF) return;
-      if (entry.vfo === active && mediaRoomMatches(entry)) {
+      if (!entry || entry.subsystem !== 0x01) return;
+      if ((entry.vfo === active || entry.vfo === 0xFF) && mediaRoomMatches(entry)) {
          mediaTryAutosubscribe(entry);
       } else if (entry.auto && entry.subscribed && !entry.disabled) {
          entry.subscribed = false;

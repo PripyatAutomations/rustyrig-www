@@ -25,11 +25,12 @@ vm.runInContext('cul_render = function() {};', context);
 context.ptt_btn_init();
 click();
 assert.equal(label, 'PENDING');
-assert.equal(sent[0].cat.ptt, 'true');
+assert.equal(sent[0].cat.ptt, true);
 function info(user, tx, vfo) {
    context.parse_userinfo_reply({talk: {user, tx, 'ptt-vfo': vfo}});
 }
 info('OTHER', true, 'A');
+info('OTHER', false, 'A');
 assert.equal(context.ptt_pending, true);
 info('operator', true, 'B');
 assert.equal(context.ptt_pending, true);
@@ -41,7 +42,7 @@ assert.equal(context.ptt_active, true);
 assert.equal(timers.size, 0);
 assert.match(label, /^TX/);
 click();
-assert.equal(sent[1].cat.ptt, 'false');
+assert.equal(sent[1].cat.ptt, false);
 assert.equal(context.ptt_pending, true);
 info('operator', false, undefined); // releases omit the old VFO on the wire
 assert.equal(context.ptt_pending, false);
@@ -62,3 +63,22 @@ expiry();
 assert.equal(context.ptt_pending, false);
 assert.notEqual(label, 'PENDING');
 console.log('PASS: browser PTT userinfo/CAT confirmations, ownership, VFO isolation, and timeout');
+
+info('NOOB', true, 'A');
+click();
+assert.equal(sent.at(-1).cat.ptt, false, 'clicking another holder only requests stop');
+assert.equal(context.ptt_active, false);
+
+// Shared audio has no VFO UUID: resolve the active control object via its rig.
+context.mediaChannels = {shared: {dir: 0, vfo: 255, rigUuid: 'shared-rig'}};
+context.mediaRoomMatches = () => true;
+context.vfoLetterToId = letter => letter.charCodeAt(0) - 65;
+context.active_vfo = 'B';
+context.rrObjectCache = {objects: new Map([
+   ['b', {descriptor: {type: 'vfo', owner: 'shared-rig', alias: 'B'},
+      properties: new Map([['mode', {state: {known: true, value: 'USB'}}]])}],
+   ['other', {descriptor: {type: 'vfo', owner: 'other-rig', alias: 'B'},
+      properties: new Map([['mode', {state: {known: true, value: 'AM'}}]])}]
+])};
+context.webui_refresh_room_vfo();
+assert.equal(label, 'USB');

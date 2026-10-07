@@ -36,6 +36,8 @@ function send_cat_msg() {
 }
 
 function vfo_edit_init() {
+   // PARITY: rrclient/gtk/gtk.userlist.c VFO audio explanation.
+   $('#rig-vfos, #vfo-a, #vfo-b').attr('title', 'VFOs select tuning and audio routes. On single-receiver radios, A/B usually share receiver audio; independent RX/TX audio depends on the rig and station setup.');
    $('span#vfo-a-freq').click(function(e) {
       $('#edit-vfo-freq').toggle(300);
    });
@@ -93,7 +95,10 @@ function webui_control_room() {
 }
 function webui_apply_room_controls(room) {
    const policy = webui_room_controls[room] || {};
-   $('.rig-ptt').prop('disabled', !policy.tx);
+   const held = typeof UserCache !== 'undefined' && UserCache.get_all().some(user =>
+      parse_bool_field(user.ptt) && (!user.ptt_vfo || user.ptt_vfo === (active_vfo || 'A')));
+   // Keep safety STOP available; current account authority is enforced server-side.
+   $('.rig-ptt').prop('disabled', !policy.tx && !held);
    $('#rig-mode, #rig-width, #rig-power, #rig-apply').prop('disabled', !policy.tx || ptt_active);
    const index = String(active_vfo || 'A').toUpperCase().charCodeAt(0) - 65;
    const canTune = policy.tune && index >= 0 && index < 26 && (policy.tuningMask & (1 << index));
@@ -104,9 +109,13 @@ function webui_apply_room_controls(room) {
 function webui_refresh_room_vfo() {
    if (typeof rrObjectCache === 'undefined' || typeof mediaChannels === 'undefined') return;
    const entry = Object.values(mediaChannels).find(channel => channel.dir === 0 &&
-      mediaRoomMatches(channel) && channel.vfo === vfoLetterToId(active_vfo));
-   if (!entry || !entry.vfoUuid) return;
-   const object = rrObjectCache.objects.get(entry.vfoUuid);
+      mediaRoomMatches(channel) && (channel.vfo === vfoLetterToId(active_vfo) || channel.vfo === 0xFF));
+   if (!entry) return;
+   const object = entry.vfoUuid ? rrObjectCache.objects.get(entry.vfoUuid) :
+      Array.from(rrObjectCache.objects.values()).find(candidate => !candidate.removed &&
+         candidate.descriptor?.type === 'vfo' && candidate.descriptor?.owner === entry.rigUuid &&
+         candidate.descriptor?.alias === String(active_vfo).toUpperCase());
+   if (!object) return;
    if (!object || object.removed) return;
    const value = name => {
       const state = object.properties.get(name)?.state;
@@ -126,7 +135,11 @@ function ptt_btn_init() {
    ptt_button_apply();
    $('button.rig-ptt').click(function() {
       const vfo = active_vfo || 'A';
-      const state = !Boolean(ptt_by_vfo[vfo]);
+      // PARITY: rrclient/gtk/gtk.ptt-btn.c: a held transmitter is stopped,
+      // never automatically transferred to the requester.
+      const held = typeof UserCache !== 'undefined' && UserCache.get_all().some(user =>
+         parse_bool_field(user.ptt) && (!user.ptt_vfo || user.ptt_vfo === vfo));
+      const state = held ? false : !Boolean(ptt_by_vfo[vfo]);
       ptt_pending = true;
       ptt_pending_state = state;
       ptt_pending_vfo = vfo;
@@ -154,7 +167,7 @@ function ptt_btn_init() {
             cmd: "ptt",
             room: webui_control_room(),
             vfo: vfo,
-            ptt: state ? "true" : "false"
+            ptt: state
          }
       };
       let json_msg = JSON.stringify(msg)

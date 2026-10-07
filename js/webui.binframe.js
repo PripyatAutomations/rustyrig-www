@@ -71,7 +71,7 @@ function binframe_parse(buf) {
    }
 
    var payload_len = dv.getUint32(16, false);   // big-endian
-   if (payload_len + RR_BINFRAME_HDR_LEN > buf.byteLength ||
+   if (payload_len + RR_BINFRAME_HDR_LEN !== buf.byteLength ||
        payload_len > RR_BINFRAME_MAX_PAYLOAD) {
       console.log("binframe: bad payload_len", payload_len, "buf", buf.byteLength);
       return null;
