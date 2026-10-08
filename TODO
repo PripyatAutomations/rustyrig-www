@@ -34,8 +34,6 @@
         https://developer.mozilla.org/en-US/docs/Web/API/Web_Serial_API
         - js/zmodemjs for zmodem upload
 
-* Add more error messages when privileges denied, etc. (server side)
-
 * Implement tabbed/windowed modes with movable/resizable windows (overlapping)
 
 * Send a bundle hash for the app when ws connects, so client can reload assets as needed
