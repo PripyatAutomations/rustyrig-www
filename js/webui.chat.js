@@ -366,6 +366,7 @@ class WebUiChat {
          return null;
       }
 
+      this.output_selector = output;
       this.output = $(output);
       this.scrollback_max_lines = 1000;
       this.scrollback_purge_lines = 100;
@@ -387,15 +388,22 @@ class WebUiChat {
          tab.on('click', () => this.SwitchRoom(room));
          $('#chat-room-tabs').append(tab);
       }
-      if (select || this.current_room === null) {
+      if (select) {
          this.SwitchRoom(room);
+      } else if (this.current_room === null) {
+         this.current_room = room;
+         this.output = $(this.output_selector);
       }
       return room;
    }
 
    SwitchRoom(room) {
-      room = this.ensure_room(room, false);
+      room = this.room_name(room);
+      if (!Object.prototype.hasOwnProperty.call(this.rooms, room)) {
+         this.ensure_room(room, false);
+      }
       this.current_room = room;
+      this.output = $(this.output_selector);
       if (typeof mediaSelectRoom === 'function') mediaSelectRoom(room);
       if (typeof webui_apply_room_controls === 'function') webui_apply_room_controls(room);
       this.output.html(this.rooms[room] || '');
@@ -421,17 +429,20 @@ class WebUiChat {
    // Add a message to the chat
    Append(msg, room) {
       room = this.ensure_room(room, false);
-      this.rooms[room] += msg;
-      if (room !== this.current_room) return;
+      this.output = $(this.output_selector);
+      if (room !== this.current_room) {
+         this.rooms[room] += msg;
+         return;
+      }
       // limit scrollback to 1000 items
-      const $messages = $('#chat-box').children();
+      const $messages = this.output.children();
 
       // Limit scrollback size
       if ($messages.length > this.scrollback_max_lines) {
          $messages.slice(0, this.scrollback_purge_lines).remove();
       }
 
-      // Add the message to the chatbox
+      // Add the message to the chatbox and persist the active room's scrollback.
       this.output.append(msg);
       this.rooms[room] = this.output.html();
 
@@ -1240,9 +1251,15 @@ function webui_parse_chat_msg(msgObj) {
     * The server now tags join/chat events with their room.  Keep a small
     * client-side room model so side-room traffic and private targets do not
     * collapse into the rig conversation. */
+   if (cmd === 'join' && msgObj.talk.user === auth_user && targetRoom &&
+       typeof webui_room_controls !== 'undefined' && webui_room_controls[targetRoom]?.joined) {
+      return;
+   }
+
    if (targetRoom) {
       ChatBox.ensure_room(targetRoom, false);
    }
+
    if ((cmd === 'join' && msgObj.talk.user === auth_user || cmd === 'room-vfo') && targetRoom &&
        msgObj.room && typeof webui_room_controls !== 'undefined') {
       webui_room_controls[targetRoom] = {
@@ -1424,7 +1441,13 @@ function webui_parse_chat_msg(msgObj) {
             reason = 'Client exited';
          }
 
-         UserCache.remove(user);
+         /* PARITY: rrclient/events.c:rrclient_handle_quit; a quit is per session. */
+         var sessions = msgObj.talk.sessions;
+         if (typeof sessions !== 'undefined') {
+            UserCache.update({ name: user, sessions: sessions });
+         } else {
+            UserCache.remove(user);
+         }
          // Play leave (door close) sound if the bell button is checked
          if ($('#bell-btn').data('checked')) {
             if (user !== auth_user) {
