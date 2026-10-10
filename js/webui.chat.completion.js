@@ -104,9 +104,12 @@ function chat_parameter_candidates(beforeCaret) {
       if (arg === 2 && staff && ['REMOVE', 'LOCK', 'UNLOCK', 'PRIVS', 'RESETPW'].includes(first)) values = getCULNames();
       if (arg === 3 && staff && first === 'PRIVS') values = ['LIST', 'ADD', 'REMOVE', 'SET'];
    } else if (command === '/quota') {
-      if (arg === 1) values = ['LIST', 'SHOW', 'ADD', 'RESET', 'SET', 'HELP'];
-      if (arg === 1 || ['SHOW', 'RESET'].includes(first) ||
-          (arg === 2 && ['ADD', 'SET'].includes(first))) values = values.concat(getCULNames());
+      const unit = ['TX', 'BW'].includes(first), position = unit ? arg - 1 : arg;
+      const action = unit ? (tokens[2] || '').toUpperCase() : first;
+      if (arg === 1) values = ['TX', 'BW'];
+      if (position === 1) values = values.concat(['LIST', 'SHOW', 'ADD', 'RESET', 'SET', 'HELP']);
+      if ((!unit && arg === 1) || ['SHOW', 'RESET'].includes(action) ||
+          (position >= 2 && position % 2 === 0 && ['ADD', 'SET'].includes(action))) values = values.concat(getCULNames());
    } else if (command === '/room') {
       if (arg === 1) values = ['LIST', 'ADD', 'REMOVE', '#'];
       else if (arg === 2 && ['ADD', 'REMOVE'].includes(first.toUpperCase())) values = ['#'];

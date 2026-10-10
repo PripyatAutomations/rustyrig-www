@@ -253,7 +253,7 @@ const webui_command_help = [
    {
       "cmd": "quota",
       "help_section": "Administration",
-      "desc": "TX quota admin (LIST|SHOW|ADD|RESET|SET)",
+      "desc": "TX/BW quota admin ([TX|BW] LIST|SHOW|ADD|RESET|SET)",
       "admin": true
    },
    {
@@ -1009,15 +1009,15 @@ function parse_chat_cmd(e) {
                // plus a single-user target if one arg was given
                if (args.length >= 2) {
                   args_obj = {
-                     target: args[1]
+                     target: args[1], data: args.slice(2).join(' ')
                   };
                } else {
                   // Bare /quota is a shortcut for LIST + showing the help
                   args_obj = {
                      target: 'LIST'
                   };
-                  ChatBox.Append('<div><span class="notice">Usage: /quota LIST | SHOW &lt;user&gt;... | ADD &lt;user&gt; &lt;minutes&gt; | RESET &lt;user&gt;... | SET &lt;user&gt; &lt;minutes&gt;</span></div>');
-                  ChatBox.Append('<div><span class="notice">&nbsp;&nbsp;ADD/SET take minutes (0 = no TX allowed); SHOW shows seconds too.</span></div>');
+                  ChatBox.Append('<div><span class="notice">Usage: /quota [TX|BW] LIST | SHOW &lt;user&gt;... | ADD &lt;user&gt; &lt;amount&gt; | RESET &lt;user&gt;... | SET &lt;user&gt; &lt;amount&gt;</span></div>');
+                  ChatBox.Append('<div><span class="notice">&nbsp;&nbsp;TX amounts use dhms (30m, 2h); BW uses whole decimal M/G/T/P units, with no suffix meaning M.</span></div>');
                }
                break;
 
@@ -1496,6 +1496,11 @@ function webui_parse_chat_msg(msgObj) {
          who_line(`Last heard:&nbsp;&nbsp;${new Date(msgObj.talk.last_heard * 1000).toLocaleString()}`);
       }
       who_line(`Client:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${webui_escape_html(msgObj.talk.ua || 'unknown')}`);
+      const usage = msgObj.talk.usage;
+      if (usage && usage['total-bytes'] !== undefined) {
+         who_line(`Usage: ${webui_escape_html(usage['total-bytes'])} bytes; BW remaining ${webui_escape_html(usage['bandwidth-remaining'])}; TX ${webui_escape_html(usage['tx-seconds'])}s; session time ${webui_escape_html(usage['session-seconds'])}s`);
+         who_line(`Frames: TX text ${webui_escape_html(usage['tx-text-frames'])} / binary ${webui_escape_html(usage['tx-binary-frames'])}; RX text ${webui_escape_html(usage['rx-text-frames'])} / binary ${webui_escape_html(usage['rx-binary-frames'])}`);
+      }
       who_line(`End of WHOIS ${webui_escape_html(username)}`, 'notice');
    } else {
       console.log("Unknown talk command:", cmd, "msg:", msgData);

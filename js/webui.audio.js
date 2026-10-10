@@ -24,6 +24,8 @@ var audio_g722_supported = false;
 var audio_g722_probe_started = false;
 var audio_g722_decoder = null;
 var audio_g722_timestamp = 0;
+const audioDecodeLatest = {};
+const audioDecodeDiscardBefore = {};
 var audio_opus_supported = false;
 var audio_opus_decoder = null;
 var audio_opus_timestamp = 0;
@@ -51,6 +53,10 @@ txGainNode.connect(txCtx.destination);
 
 // Halt playback
 function stopPlayback() {
+   // Invalidate queued decoder output as well as already scheduled sources.
+   audioDecodeDiscardBefore['G.722'] = audio_g722_timestamp;
+   audioDecodeDiscardBefore.Opus = audio_opus_timestamp;
+   audioDecodeDiscardBefore.AAC = audio_aac_timestamp;
    for (const source of rxPlaybackNodes) {
       try { source.stop(); } catch (_) {}
       source.disconnect();
@@ -282,6 +288,11 @@ function decodeG722Packet(buffer) {
       return;
    }
    try {
+      audioDecodeLatest['G.722'] = audio_g722_timestamp;
+      if (audio_g722_decoder.decodeQueueSize >= 8) {
+         audio_g722_timestamp += Math.floor(buffer.byteLength * 2 * 1000000 / 16000);
+         return;
+      }
       audio_g722_decoder.decode(new EncodedAudioChunk({
          type: 'key',
          timestamp: audio_g722_timestamp,
@@ -301,6 +312,11 @@ function decodeOpusPacket(buffer) {
       return;
    }
    try {
+      audioDecodeLatest['Opus'] = audio_opus_timestamp;
+      if (audio_opus_decoder.decodeQueueSize >= 8) {
+         audio_opus_timestamp += 20000;
+         return;
+      }
       audio_opus_decoder.decode(new EncodedAudioChunk({
          type: 'key', timestamp: audio_opus_timestamp,
          data: new Uint8Array(buffer)
@@ -320,6 +336,11 @@ function decodeAacPacket(buffer) {
       return;
    }
    try {
+      audioDecodeLatest['AAC'] = audio_aac_timestamp;
+      if (audio_aac_decoder.decodeQueueSize >= 8) {
+         audio_aac_timestamp += 64000;
+         return;
+      }
       audio_aac_decoder.decode(new EncodedAudioChunk({
          type: 'key', timestamp: audio_aac_timestamp,
          data: new Uint8Array(buffer)
@@ -486,6 +507,8 @@ function webui_make_audio_decoder(label, onError) {
    return new AudioDecoder({
       output: function(audioData) {
          try {
+            if (audioData.timestamp < (audioDecodeDiscardBefore[label] || 0)) return;
+            if (audioDecodeLatest[label] !== undefined && audioDecodeLatest[label] - audioData.timestamp > 250000) return;
             var samples = new Float32Array(audioData.numberOfFrames);
             audioData.copyTo(samples, { planeIndex: 0, format: 'f32-planar' });
             playFloat32Samples(samples, audioData.sampleRate || 16000);

@@ -174,6 +174,12 @@ function rrSendFrame(sock, frame, size, limit) {
       console.warn('RustyRig outgoing queue full; frame not queued');
       return false;
    }
-   try { sock.send(frame); return true; }
+   try {
+      sock.send(frame);
+      const traffic = sock.rrTraffic || (sock.rrTraffic = {}), kind = typeof frame === 'string' ? 'text' : 'binary';
+      traffic['tx-' + kind + '-bytes'] = (traffic['tx-' + kind + '-bytes'] || 0n) + BigInt(size);
+      traffic['tx-' + kind + '-frames'] = (traffic['tx-' + kind + '-frames'] || 0n) + 1n;
+      return true;
+   }
    catch (error) { console.error('RustyRig send failed', error); sock.close(); return false; }
 }

@@ -27,4 +27,15 @@ assert.equal(nodes.length, count, 'late decoder output cannot play while disconn
 ctx.socket.readyState = 1;
 ctx.playFloat32Samples(new Float32Array(320), 16000);
 assert.equal(nodes.at(-1).time, 0.075, 'recovery begins with a fresh jitter buffer');
+ctx.AudioDecoder = class { constructor(options) { this.output = options.output; } };
+const decoder = ctx.webui_make_audio_decoder('Opus', () => {});
+ctx.audio_opus_timestamp = 20000;
+ctx.stopPlayback();
+const previous = nodes.length;
+let closed = false;
+decoder.output({timestamp: 0, close() {closed = true;}});
+assert(closed && nodes.length === previous, 'old queued decoder output stays discarded after reconnect');
+decoder.output({timestamp: 20000, numberOfFrames: 320, sampleRate: 16000,
+   copyTo() {}, close() {}});
+assert.equal(nodes.length, previous + 1, 'fresh output recovers after decoder invalidation');
 console.log('PASS: bounded playback backlog, disconnect cancellation and fresh recovery');

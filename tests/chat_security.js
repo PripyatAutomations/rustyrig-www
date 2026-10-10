@@ -38,4 +38,14 @@ for (const [privs, staff] of [['view,chat',false],['notadmin',false],['owner',tr
    assert(rendered.indexOf('<b>Media</b>') < rendered.indexOf('/media —'));
    assert(rendered.indexOf('/media —') < rendered.indexOf('/rxcodec —'));
 }
+const sent = [];
+context.socket = {};
+context.chat_history_add = () => {};
+context.setTimeout = () => {};
+context.rrSendMessage = (_socket, message) => sent.push(message);
+context.$ = () => ({val: () => '/quota BW ADD alice 2G', hide() {}, focus() {}});
+context.parse_chat_cmd({preventDefault() {}});
+assert.equal(sent[0].talk.cmd, 'quota');
+assert.equal(sent[0].talk.target, 'BW');
+assert.equal(sent[0].talk.data, 'ADD alice 2G');
 console.log('PASS: escaped live/replay/private/action chat, links, account data and sectioned privilege-aware help');

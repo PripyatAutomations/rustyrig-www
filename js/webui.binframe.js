@@ -104,6 +104,7 @@ function binframe_is_audio(f) {
    return f && f.subsystem === RR_BINFRAME_SUBSYS_AUDIO && f.payload_len > 0;
 }
 
+const rrAudioSequences = new Map();
 function binframe_build_audio(codec, direction, vfo, rig, stream, payload) {
    if (!codec || codec.length !== 4 || !payload || payload.byteLength === 0 ||
        payload.byteLength > RR_BINFRAME_MAX_PAYLOAD) {
@@ -121,7 +122,10 @@ function binframe_build_audio(codec, direction, vfo, rig, stream, payload) {
    dv.setUint8(9, vfo === undefined ? 0 : vfo);
    dv.setUint8(10, rig === undefined ? 0 : rig);
    dv.setUint8(11, stream === undefined ? 0 : stream);
-   dv.setUint32(12, 0, false);
+   const sequenceKey = (stream || 0) & 255;
+   const sequence = rrAudioSequences.get(sequenceKey) || 0;
+   dv.setUint32(12, sequence, false);
+   rrAudioSequences.set(sequenceKey, (sequence + 1) >>> 0);
    dv.setUint32(16, bytes.byteLength, false);
    dv.setBigUint64(20, BigInt(Math.max(0, Math.floor(performance.now() * 1000))), false);
    new Uint8Array(buf, RR_BINFRAME_HDR_LEN).set(bytes);

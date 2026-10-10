@@ -181,6 +181,8 @@ function handle_binary_frame(event) {
       return;
    }
 
+   if (typeof webui_observe_audio === 'function' && !webui_observe_audio(f)) return;
+
    // Copy payload out of the ws buffer so audio code owns it
    var payload = f.payload.buffer.slice(f.payload.byteOffset,
                                         f.payload.byteOffset + f.payload.byteLength);
@@ -188,6 +190,11 @@ function handle_binary_frame(event) {
 }
 
 function webui_handle_ws_msg(event) {
+   const traffic = socket.rrTraffic || (socket.rrTraffic = {}), kind = typeof event.data === 'string' ? 'text' : 'binary';
+   const size = kind === 'text' ? new TextEncoder().encode(event.data).length : event.data.byteLength || 0;
+   traffic['rx-' + kind + '-bytes'] = (traffic['rx-' + kind + '-bytes'] || 0n) + BigInt(size);
+   traffic['rx-' + kind + '-frames'] = (traffic['rx-' + kind + '-frames'] || 0n) + 1n;
+
    if (event.data instanceof ArrayBuffer) {
       handle_binary_frame(event);
    } else if (typeof event.data === "string") {
