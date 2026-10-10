@@ -1,17 +1,26 @@
-/* Compact object/property codec foundation; not yet used by live transport.
+/* Compact object/property, auth and connection codec foundation; not yet used by live transport.
  * PARITY: rustyrig-fw/librrprotocol/wire.c. No legacy wire decoder. */
 'use strict';
 const rrWireOperations = new Set([
    'object.snapshot', 'object.unsubscribe', 'object.inventory', 'object.begin',
    'object.descriptor', 'object.added', 'object.removed', 'object.end',
    'object.result', 'object.inventory-entry', 'object.inventory-end',
-   'property.set', 'property.descriptor', 'property.state', 'property.changed', 'property.result'
+   'property.set', 'property.descriptor', 'property.state', 'property.changed', 'property.result',
+   'hello', 'ping', 'pong', 'error', 'notice', 'alert',
+   'auth.login', 'auth.pass', 'auth.logout', 'auth.challenge', 'auth.authorized', 'auth.error'
 ]);
 const rrWireFields = {
    object: new Set(['uuid', 'type', 'owner', 'alias', 'name', 'lifecycle', 'backend', 'room']),
    property: new Set(['name', 'type', 'readable', 'writable', 'unit', 'minimum', 'maximum',
       'step', 'enum', 'observed', 'known', 'available', 'version', 'value'])
 };
+Object.assign(rrWireFields, {
+   auth: new Set(['user','error','nonce','pass','token','ts','privs','server','password-change-required','password-expires','password-set','msg']),
+   hello: new Set(['swver','hwver','role']),
+   error: new Set(['code','from','msg','target','ts','vfo']),
+   notice: new Set(['msg']), alert: new Set(['from','msg','ts']),
+   ping: new Set(['ts']), pong: new Set(['ts'])
+});
 const rrWireMetadata = new Set([
    'target', 'request.id', 'request.room', 'stream.epoch', 'stream.seq', 'result.code',
    'inventory.kind', 'inventory.name', 'inventory.depth', 'inventory.uuid', 'inventory.room',
@@ -67,17 +76,25 @@ function rrWireAssign(out, path, value) {
 function rrWireTransform(message, encode) {
    const flat = rrWireFlatten(message);
    const family = encode ? flat['msg.type'] : typeof flat.op === 'string' ? flat.op.split('.')[0] : null;
-   const op = encode ? family + '.' + flat[family + '.cmd'] : flat.op;
-   if (!rrWireOperations.has(op)) throw new Error('Unsupported wire operation');
-   const out = encode ? {op} : {msg: {type: family}, [family]: {cmd: op.slice(family.length + 1)}};
+   const op = encode ? flat[family + '.cmd'] ? family + '.' + flat[family + '.cmd'] :
+      family === 'auth' && flat['auth.error'] ? 'auth.error' : family : flat.op;
+   if (!rrWireOperations.has(op) || (encode && op === 'auth.error' && flat['auth.cmd'] !== undefined))
+      throw new Error('Unsupported wire operation');
+   const out = encode ? {op} : {msg: {type: family}};
+   if (!encode && op.includes('.') && op !== 'auth.error') out[family] = {cmd: op.slice(family.length + 1)};
    for (const [key, value] of Object.entries(flat)) {
       if (encode ? key === 'msg.type' || key === family + '.cmd' : key === 'op') continue;
       let destination = key;
-      if (!rrWireMetadata.has(key)) {
-         const field = encode && key.startsWith(family + '.') ? key.slice(family.length + 1) : key;
-         if ((encode && !key.startsWith(family + '.')) || !rrWireFields[family].has(field))
+      const model = family === 'object' || family === 'property';
+      if (key === (encode ? 'msg.ts' : 'time')) {
+         destination = encode ? 'time' : 'msg.ts';
+      } else if ((family === 'ping' || family === 'pong') && key === (encode ? 'ping.ts' : 'echo')) {
+         destination = encode ? 'echo' : 'ping.ts';
+      } else if (!model || !rrWireMetadata.has(key)) {
+         const field = encode && key.startsWith(family + '.') ? key.slice(family.length + 1) : key === 'text' ? 'msg' : key;
+         if ((!encode && key === 'msg') || (encode && !key.startsWith(family + '.')) || !rrWireFields[family].has(field))
             throw new Error('Unknown wire field');
-         destination = encode ? field : family + '.' + field;
+         destination = encode ? field === 'msg' ? 'text' : field : family + '.' + field;
       }
       rrWireAssign(out, destination, value);
    }

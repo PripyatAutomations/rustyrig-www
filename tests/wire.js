@@ -14,6 +14,7 @@ for (const line of vectors) {
       assert.deepEqual(JSON.parse(encoded), JSON.parse(vector.wire));
    }
 }
+assert.equal(rrWireEncode({msg: {type: 'auth'}, auth: {cmd: 'error', error: 'alias'}}), null);
 assert.equal(rrWireEncode(null), null);
 assert.equal(rrWireDecode(null), null);
 for (const value of [NaN, Infinity, 9007199254740992, '\0', '\ud800'])
