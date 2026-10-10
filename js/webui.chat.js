@@ -1498,6 +1498,8 @@ function webui_parse_chat_msg(msgObj) {
       who_line(`Client:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${webui_escape_html(msgObj.talk.ua || 'unknown')}`);
       const usage = msgObj.talk.usage;
       if (usage && usage['total-bytes'] !== undefined) {
+         /* PARITY: rrclient/events.c rrclient_handle_whois quota status. */
+         who_line(`Quotas: TX remaining ${webui_escape_html(usage['tx-remaining'])}s (${usage['tx-enforced'] ? 'enforced' : 'advisory'}); BW ${webui_escape_html(usage['bandwidth-status'])} (warning only)`);
          who_line(`Usage: ${webui_escape_html(usage['total-bytes'])} bytes; BW remaining ${webui_escape_html(usage['bandwidth-remaining'])}; TX ${webui_escape_html(usage['tx-seconds'])}s; session time ${webui_escape_html(usage['session-seconds'])}s`);
          who_line(`Frames: TX text ${webui_escape_html(usage['tx-text-frames'])} / binary ${webui_escape_html(usage['tx-binary-frames'])}; RX text ${webui_escape_html(usage['rx-text-frames'])} / binary ${webui_escape_html(usage['rx-binary-frames'])}`);
       }

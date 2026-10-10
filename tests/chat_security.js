@@ -26,6 +26,13 @@ for (const msg_type of ['pub', 'action', 'priv', 'privmsg', 'replay-pub', 'repla
 }
 context.webui_parse_chat_msg({msg:{ts:1},talk:{cmd:'whois',username:'<img>',email:'<svg>',ua:'<script>'}});
 assert(!output.join('').includes('<script>'));
+output.length=0;
+context.webui_parse_chat_msg({msg:{ts:1},talk:{cmd:'whois',username:'alice',usage:{
+   'total-bytes':'1000', 'tx-remaining':'300', 'tx-enforced':true,
+   'bandwidth-status':'exhausted', 'bandwidth-remaining':'-1', 'tx-seconds':'10',
+   'session-seconds':'20','tx-text-frames':'2','tx-binary-frames':'3','rx-text-frames':'4','rx-binary-frames':'5'}}});
+assert(output.join('').includes('TX remaining 300s (enforced); BW exhausted (warning only)'));
+
 assert(!context.user_link('x" onclick="evil()').includes('onclick="evil()'));
 for (const [privs, staff] of [['view,chat',false],['notadmin',false],['owner',true],['admin,chat',true]]) {
    output.length=0;context.auth_privs=privs;context.webui_show_help();
