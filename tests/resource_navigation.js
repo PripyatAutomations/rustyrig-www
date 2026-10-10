@@ -9,6 +9,9 @@ ctx.AudioContext = class { createGain() { return {gain: {}, connect() {}}; } };
 ctx.window = ctx;ctx.webui_inits = [];ctx.document = {addEventListener() {}};
 ctx.socket = {readyState: 1, send() {}};ctx.WebSocket = {OPEN: 1};
 vm.createContext(ctx);
+ctx.TextEncoder = TextEncoder;
+for (const file of ["webui.wire.registry.js", "webui.wire.js"])
+   vm.runInContext(fs.readFileSync("www/js/" + file, "utf8"), ctx);
 vm.runInContext(fs.readFileSync('www/js/webui.media.js', 'utf8'), ctx);
 vm.runInContext(fs.readFileSync('www/js/webui.objects.js', 'utf8'), ctx);
 vm.runInContext(fs.readFileSync('www/js/webui.audio.js', 'utf8'), ctx);
@@ -25,7 +28,7 @@ assert.equal(ctx.mediaChanLookup('#2'), ctx.mediaChannels['gps-id']);
 assert.equal(ctx.mediaChanLookup('2'), ctx.mediaChannels['gps-id']);
 assert.equal(ctx.mediaChanLookup('#2junk'), null);
 assert.equal(ctx.mediaChanLookup('missing'), null);
-const sent = [];ctx.socket.send = text => sent.push(JSON.parse(text));
+const sent = [];ctx.socket.send = text => sent.push(JSON.parse(JSON.stringify(ctx.rrWireDecode(text))));
 assert.equal(ctx.webui_audio_set_codec('mu08',false,'RIG0.VFO_A.RX'),true);
 assert.equal(sent.length,1);assert.equal(sent[0].media['chan-uuid'],'rx-id');
 assert.equal(ctx.webui_audio_set_codec('none',true,'rig0.vfo_a.rx'),false);

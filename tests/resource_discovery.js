@@ -3,12 +3,15 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const sent = [], displayed = [], destinations = [];
 const ctx = {console, mediaChannels: {gps: {uuid: 'gps', name: 'rig0.gps.rx', codec: 'gpsp'}},
-   socket: {readyState: 1, send: text => sent.push(JSON.parse(text))}, WebSocket: {OPEN: 1},
+   socket: {readyState: 1, send: text => sent.push(JSON.parse(JSON.stringify(ctx.rrWireDecode(text))))}, WebSocket: {OPEN: 1},
    ChatBox: {current_room: "first", Append: (value,room) => { displayed.push(value); destinations.push(room); }}, $: () => ({text: value => value}),
    subscribeMediaChannel: uuid => sent.push({subscribe: uuid}),
    unsubscribeMediaChannel: uuid => sent.push({unsubscribe: uuid})};
 ctx.window = ctx;
 vm.createContext(ctx);
+ctx.TextEncoder = TextEncoder;
+for (const file of ["webui.wire.registry.js", "webui.wire.js"])
+   vm.runInContext(fs.readFileSync("www/js/" + file, "utf8"), ctx);
 ctx.webui_inits=[];ctx.document={addEventListener() {}};
 vm.runInContext(fs.readFileSync('www/js/webui.media.js', 'utf8'), ctx);
 vm.runInContext(fs.readFileSync('www/js/webui.objects.js', 'utf8'), ctx);

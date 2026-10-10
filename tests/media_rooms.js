@@ -2,10 +2,13 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const sent = [];
-const socket = {readyState: 1, send: text => sent.push(JSON.parse(text).media)};
+const socket = {readyState: 1, send: text => sent.push(JSON.parse(JSON.stringify(ctx.rrWireDecode(text))).media)};
 const ctx = {window: {socket, webui_inits: []}, socket, WebSocket: {OPEN: 1}, console: {log() {}},
    active_vfo: 'A'};
 vm.createContext(ctx);
+ctx.TextEncoder = TextEncoder;
+for (const file of ["webui.wire.registry.js", "webui.wire.js"])
+   vm.runInContext(fs.readFileSync("www/js/" + file, "utf8"), ctx);
 vm.runInContext(fs.readFileSync('www/js/webui.media.js', 'utf8'), ctx);
 ctx.mediaReady = true;
 function announce(uuid, room, joined, rig = 0) {

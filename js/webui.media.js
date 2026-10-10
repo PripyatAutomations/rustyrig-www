@@ -91,7 +91,7 @@ function subscribeMediaChannel(uuid, automatic) {
       "msg": { "type": "media" },
       "media": { "cmd": "subscribe", "chan-uuid": uuid }
    };
-   socket.send(JSON.stringify(sub));
+   rrSendMessage(socket, sub);
    console.log("Subscribing to media channel", uuid);
 }
 
@@ -103,7 +103,7 @@ function unsubscribeMediaChannel(uuid) {
       "msg": { "type": "media" },
       "media": { "cmd": "unsubscribe", "chan-uuid": uuid }
    };
-   socket.send(JSON.stringify(msg));
+   rrSendMessage(socket, msg);
 }
 
 function requestMediaChannels() {
@@ -114,7 +114,7 @@ function requestMediaChannels() {
       "msg": { "type": "media" },
       "media": { "cmd": "list" }
    };
-   socket.send(JSON.stringify(msg));
+   rrSendMessage(socket, msg);
 }
 
 function activeVfoId() {

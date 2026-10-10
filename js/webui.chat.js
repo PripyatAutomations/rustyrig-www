@@ -728,8 +728,7 @@ function chat_send_command(cmd, args) {
          "type": "talk"
       },
       "talk": {
-         "cmd": cmd,
-         "token": auth_token
+         "cmd": cmd
       }
    };
 
@@ -750,10 +749,8 @@ function chat_send_command(cmd, args) {
       }
    }
 
-   var msgObj_j = JSON.stringify(msgObj);
-   socket.send(msgObj_j);
+   rrSendMessage(socket, msgObj);
    $('#user-menu').hide();
-//   console.log("Sent command:", msgObj_j);
 }
 
 var unmute_vol = $('#rig-rx-vol').val();
@@ -1027,10 +1024,10 @@ function parse_chat_cmd(e) {
             case 'rehash':
                // PARITY: rustyrig-fw/rrclient/cmd.admin.c: cmd_rehash()
                // Server checks admin/owner privs; reloads cfg + user db
-               socket.send(JSON.stringify({
+               rrSendMessage(socket, {
                   "msg": { "type": "rehash" },
                   "ts": Math.floor(Date.now() / 1000)
-               }));
+               });
                ChatBox.Append('<div><span class="notice">Rehash requested from server</span></div>');
                break;
             case 'die':
@@ -1060,7 +1057,7 @@ function parse_chat_cmd(e) {
             "talk": {
                "cmd": "msg",
                "ts": Math.floor(Date.now() / 1000),
-               "token": auth_token,
+
                "msg_type": msg_type,
                "data": message
             }
@@ -1073,7 +1070,7 @@ function parse_chat_cmd(e) {
             }
          }
          if (private_target) msgObj.talk.target = private_target;
-         socket.send(JSON.stringify(msgObj));
+         rrSendMessage(socket, msgObj);
       }
 
       // Record the sent line in the input history (for up/down recall)
@@ -1299,9 +1296,9 @@ function webui_parse_chat_msg(msgObj) {
       const openRooms = typeof ChatBox !== 'undefined' && ChatBox.rooms ?
          Object.keys(ChatBox.rooms) : [];
       webui_rejoin_open_rooms(openRooms, webui_available_rooms, joinedRooms, room =>
-         socket.send(JSON.stringify({
+         rrSendMessage(socket, {
             msg: { type: 'talk' }, talk: { cmd: 'join', target: room }
-         })));
+         }));
       append('<div><span class="notice">Available rooms: ' +
          webui_escape_html(msgObj.talk.rooms || '(none)') + '</span></div>');
       return;
@@ -1326,7 +1323,7 @@ function webui_parse_chat_msg(msgObj) {
 
    if (cmd === 'replay-start') {
       append('<div>' + msg_ts + ' *** Chat replay Start ***</div>');
-   } else if (cmd === 'replay-complete' || cmd === 'replay-completed') {
+   } else if (cmd === 'replay-complete') {
       append('<div>' + msg_ts + ' *** Chat replay End ***</div>');
    } else if (cmd === 'msg' && message) {
       var rawSender = msgObj.talk.from;

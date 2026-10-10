@@ -79,7 +79,7 @@ function try_login() {
       }
    };
 
-   socket.send(JSON.stringify(msgObj));
+   rrSendMessage(socket, msgObj);
 }
 
 function show_connecting(state) {
@@ -115,8 +115,7 @@ async function authenticate(login_user, login_pass, auth_token, nonce) {
       "auth": {
          "cmd": "pass",
          "user": login_user,
-         "pass": hashed_pass,
-         "token": auth_token
+         "pass": hashed_pass
       }
    };
    return msgObj;
@@ -129,8 +128,7 @@ function logout() {
       },
       "auth": {
          "cmd": "logout",
-         "user": auth_user,
-         "token": auth_token
+         "user": auth_user
       }
    };
    // Flag that we're logging out BEFORE sending, so the server's close
@@ -138,7 +136,7 @@ function logout() {
    ws_kicked = true;
 
    if (typeof socket !== 'undefined' && socket.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify(msgObj));
+      rrSendMessage(socket, msgObj);
    }
    stop_reconnecting();
 
@@ -212,11 +210,11 @@ function webui_parse_auth_msg(msgObj) {
          // PARITY: rrclient/events.c rrclient_handle_auth (server autojoin).
          var autojoin = localStorage.getItem("rustyrig.autojoin") || "";
          autojoin.split(/[,\s]+/).filter(Boolean).forEach(function(room) {
-            if (/^[#&][^,\s]+$/.test(room)) socket.send(JSON.stringify({
+            if (/^[#&][^,\s]+$/.test(room)) rrSendMessage(socket, {
                msg: { type: "talk" }, talk: { cmd: "join", target: room }
-            }));
+            });
          });
-         socket.send(JSON.stringify({ msg: { type: "talk" }, talk: { cmd: "list" } }));
+         rrSendMessage(socket, { msg: { type: "talk" }, talk: { cmd: "list" } });
          rrObjectsSubscribe();
 
          // The browser advertises the codecs it can decode.  RX and TX are
@@ -244,8 +242,7 @@ function webui_parse_auth_msg(msgObj) {
 
          // here we use an async call to crypto.simple
          authenticate(login_user, login_pass, auth_token, nonce).then(msgObj => {
-            var msgObj_t = JSON.stringify(msgObj);
-            socket.send(msgObj_t);
+            rrSendMessage(socket, msgObj);
          });
          break;
       case 'expired':

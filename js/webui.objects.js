@@ -103,7 +103,7 @@ var rrObjectCache = new RRObjectCache();
 function rrObjectsSubscribe() {
    rrObjectCache.clear();
    rrInventoryRequests.clear();
-   socket.send(JSON.stringify({msg: {type: 'object'}, object: {cmd: 'snapshot'}, request: {id: 'initial-objects'}}));
+   rrSendMessage(socket, {msg: {type: 'object'}, object: {cmd: 'snapshot'}, request: {id: 'initial-objects'}});
 }
 // Browser-console diagnostic: rrObjectsDump().
 function rrObjectsDump() { const objects = rrObjectCache.dump(); console.log(objects); return objects; }
@@ -159,7 +159,7 @@ function rrRigCommand(args) {
       rrInventoryId = id;
       rrInventoryRequests.set(id,{room: ChatBox.current_room || (typeof webui_authoritative_room !== 'undefined' ? webui_authoritative_room : '#rig'), visible: [], kind: ['gps','serial'].includes(args[0]) ? args[0] : 'rig', count: 0});
    }
-   socket.send(JSON.stringify({msg: {type: 'object'}, object: {cmd}, request: {id}}));
+   rrSendMessage(socket, {msg: {type: 'object'}, object: {cmd}, request: {id}});
 }
 function rrGpsCommand(args) {
    const verb = (args[1] || 'list').toLowerCase();

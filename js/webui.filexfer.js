@@ -68,10 +68,10 @@ function send_chunked_file(base64Data, filename, filetype) {
       const chunkData = base64Data.slice(i * chunkSize, (i + 1) * chunkSize);
 
       const msgObj = {
+         msg: {type: 'talk'},
          talk: {
             cmd: "msg",
             ts: Math.floor(Date.now() / 1000),
-            token: auth_token,
             msg_type: "file_chunk",
             msg_id: msgId,
             chunk_index: i,
@@ -82,7 +82,7 @@ function send_chunked_file(base64Data, filename, filetype) {
          }
       };
 
-      socket.send(JSON.stringify(msgObj));
+      rrSendMessage(socket, msgObj);
    }
 }
 

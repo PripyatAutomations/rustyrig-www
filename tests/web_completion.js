@@ -13,6 +13,9 @@ const ctx = {
    mediaLastList: ['rx-a', 'rx-b']
 };
 vm.createContext(ctx);
+ctx.TextEncoder = TextEncoder;
+for (const file of ["webui.wire.registry.js", "webui.wire.js"])
+   vm.runInContext(fs.readFileSync("www/js/" + file, "utf8"), ctx);
 vm.runInContext(fs.readFileSync('www/js/webui.chat.completion.js', 'utf8'), ctx);
 function candidates(line) { return Array.from(ctx.chat_parameter_candidates(line) || []); }
 assert.deepEqual(candidates('/sercom at'), ['ATTACH']);

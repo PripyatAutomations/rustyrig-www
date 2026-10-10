@@ -12,6 +12,7 @@ var max_reconnects = 10;	// maximum times we'll retry connecting
 var ws_last_heard;		// When was the last time we heard something from the server? Used to send a keep-alive
 var ws_last_pinged;
 var ws_keepalives_sent = 0;
+var ws_keepalive_timer;
 var ws_keepalive_time = 60;	// Send a keep-alive (ping) to the server every 60 seconds, if no other activity
 
 var ChatBox;
@@ -42,9 +43,9 @@ function send_ping(sock) {
       ws_keepalives_sent++;
       ws_last_pinged = now;
       // Server expects a JSON dict (ws_txtframe_process): msg.type ping with msg.ts
-      sock.send(JSON.stringify({
+      rrSendMessage(sock, {
          msg: { type: 'ping', ts: now }
-      }));
+      });
    }
 }
 
@@ -66,12 +67,15 @@ function ws_connect() {
    }
 
    // destroy old socket, if present
-   if (typeof socket !== 'undefined') {
+   if (typeof socket !== 'undefined' && socket) {
+      socket.onclose = null;
+      socket.onerror = null;
+      socket.onmessage = null;
       socket.close();
       socket = null;
    }
 
-   socket = new WebSocket(make_ws_url());
+   socket = new WebSocket(make_ws_url(), rrWireRegistry.websocket_subprotocol);
    socket.binaryType = "arraybuffer";
 
    socket.onmessage = function(event) {
@@ -92,9 +96,11 @@ function ws_connect() {
       UserCache.clear();
 
       // Set a timer to check if keepalives needs to be sent (every day 10 seconds)
-      setInterval(function() {
-         if (ws_last_heard < (now - ws_keepalive_time)) {
-            console.log(`keep-alive needed; last-heard=${ws_lastheard} now=${now} keep-alive time: ${ws_keepalive_time}, sending`);
+      clearInterval(ws_keepalive_timer);
+      const currentSocket = socket;
+      ws_keepalive_timer = setInterval(function() {
+         const currentTime = Math.floor(Date.now() / 1000);
+         if (currentSocket === socket && ws_last_heard < (currentTime - ws_keepalive_time)) {
             // Send a keep-alive (ping) to the server so it will reply
             send_ping(socket);
          }
@@ -102,8 +108,11 @@ function ws_connect() {
    };
 
    /* NOTE: On error sorts this out for us */
-   socket.onclose = function() {
+   socket.onclose = function(event) {
+      clearInterval(ws_keepalive_timer);
       rrObjectCache.clear();
+      if (typeof webui_connection_state_lost === 'function') webui_connection_state_lost();
+      if (typeof stopPlayback === 'function') stopPlayback();
       if (typeof webui_room_controls !== 'undefined') {
          Object.keys(webui_room_controls).forEach(room => {
             webui_room_controls[room].joined = false;
@@ -157,8 +166,7 @@ function handle_binary_frame(event) {
    /* PARITY: librrprotocol/ws.binframe.h */
    var f = binframe_parse(event.data);
    if (f === null) {
-      // Legacy/raw framing: fall back to negotiated rx codec
-      playAudioPacket(event.data, audio_codec_rx);
+      console.warn('Rejected invalid binary protocol frame');
       return;
    }
 
@@ -189,7 +197,13 @@ function webui_handle_ws_msg(event) {
       ws_last_heard = Date.now();
 
       try {
-         var msgObj = JSON.parse(msgData);
+         var msgObj = rrWireDecode(msgData);
+         if (!msgObj) throw new Error("Invalid RustyRig protocol message");
+         const responseRtt = rrObserveAck(socket, msgObj);
+         if (responseRtt !== null && typeof latency_samples !== 'undefined') {
+            latency_samples.push(responseRtt);
+            if (latency_samples.length > 50) latency_samples.shift();
+         }
 
          if (msgObj.msg?.type === 'object' || msgObj.msg?.type === 'property') {
             if (rrInventoryMessage(msgObj)) { /* one-shot inventory */ }
@@ -220,7 +234,7 @@ function webui_handle_ws_msg(event) {
          } else if (msgObj.cat) {
             console.log("CAT msg:", msgObj);
             webui_parse_cat_msg(msgObj);
-         } else if (msgObj["ptt.tot-expired"]) {   // Server talk-timeout fired
+         } else if ((msgObj.msg.type === "ptt.tot-expired" && msgObj.ptt && msgObj.ptt.tot)) {   // Server talk-timeout fired
             ptt_tot_expired(msgObj);
          } else if (msgObj.callsign) {
             /* PARITY: rustyrig-fw/rrclient/events.c:rrclient_handle_callsign */
@@ -228,7 +242,9 @@ function webui_handle_ws_msg(event) {
          } else if (msgObj.notice) {   // notices from ws_send_notice()
             var notice_ts = msg_timestamp(msgObj.msg.ts);
             ChatBox.Append(`<div class="chat-status notice">${notice_ts}&nbsp;${webui_escape_html(msgObj.notice.msg)}</div>`);
-         } else if (msgObj.ping) {		// Handle PING messages
+         } else if (msgObj.msg.type === 'pong') {
+            ws_keepalives_sent = 0;
+         } else if (msgObj.msg.type === 'ping' && msgObj.ping) {		// Handle PING messages
             var ts = msgObj.msg ? msgObj.msg.ts : undefined;      // server's wall-clock ts, must be echoed back in msg.ts
             var mono_ts = msgObj.ping.ts;                        // monotonic us ts for RTT measurement
             if (typeof ts === 'undefined' || ts <= 0) {
@@ -245,7 +261,7 @@ function webui_handle_ws_msg(event) {
                   ts: mono_ts
                }
             };
-            socket.send(JSON.stringify(newMsg));
+            rrSendMessage(socket, newMsg);
          } else if (msgObj.talk) {		// Handle Chat messages
             webui_parse_chat_msg(msgObj);
          } else if (msgObj.media) {		// Media control messages
@@ -294,6 +310,7 @@ function stop_reconnecting() {
    // Set flags so any in-flight onclose/onerror won't spawn another reconnect
    ws_kicked = true;
    reconnecting = false;
+   clearInterval(ws_keepalive_timer);
    if (reconnect_timer) {
       clearTimeout(reconnect_timer);
       reconnect_timer = null;
@@ -328,6 +345,7 @@ function handle_reconnect() {
       ChatBox.Append('<div class="chat-status error">' + my_ts + '&nbsp; Giving up on reconnecting after ' + reconnect_tries + ' attempts!</div>');
       stop_reconnecting();
       wm_switch_tab('login');
+      return;
    }
 
    // Delay reconnecting for a bit

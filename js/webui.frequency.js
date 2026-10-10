@@ -113,8 +113,7 @@ function freq_input_init() {
             freq: val
          }
       };
-      let json_msg = JSON.stringify(msg)
-      socket.send(json_msg);
+      rrSendMessage(socket, msg);
 //      console.log("setting vfo", active_vfo, "freq", val);
       $input.addClass('vfo-changed');
    });

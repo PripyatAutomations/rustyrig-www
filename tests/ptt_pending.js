@@ -13,12 +13,15 @@ const sent = [];
 const context = {
    window: {webui_inits: []}, console: {log() {}}, $: () => widget,
    auth_user: 'OPERATOR', webui_authoritative_room: '#site',
-   socket: {send: text => sent.push(JSON.parse(text))},
+   socket: {readyState: 1, send: text => sent.push(JSON.parse(JSON.stringify(context.rrWireDecode(text))))},
    msg_timestamp: () => '', format_freq: String,
    setTimeout: fn => { const id = ++nextTimer; timers.set(id, fn); return id; },
    clearTimeout: id => timers.delete(id)
 };
 vm.createContext(context);
+context.TextEncoder = TextEncoder;
+for (const file of ["webui.wire.registry.js", "webui.wire.js"])
+   vm.runInContext(fs.readFileSync("www/js/" + file, "utf8"), context);
 for (const file of ['webui.chat.js', 'webui.rigctl.js'])
    vm.runInContext(fs.readFileSync('www/js/' + file, 'utf8'), context);
 vm.runInContext('cul_render = function() {};', context);
@@ -76,12 +79,22 @@ context.vfoLetterToId = letter => letter.charCodeAt(0) - 65;
 context.active_vfo = 'B';
 context.rrObjectCache = {objects: new Map([
    ['b', {descriptor: {type: 'vfo', owner: 'shared-rig', alias: 'B'},
-      properties: new Map([['mode', {state: {known: true, value: 'USB'}}]])}],
+      properties: new Map([['mode', {state: {known: true, available: true, value: 'USB'}}]])}],
    ['other', {descriptor: {type: 'vfo', owner: 'other-rig', alias: 'B'},
-      properties: new Map([['mode', {state: {known: true, value: 'AM'}}]])}]
+      properties: new Map([['mode', {state: {known: true, available: true, value: 'AM'}}]])}]
 ])};
+const rendered = new Map();
+context.$ = selector => new Proxy({}, {get: (_, method) => (...args) => {
+   if (method === 'html') rendered.set(selector, args[0]);
+   return widget;
+}});
 context.webui_refresh_room_vfo();
-assert.equal(label, 'USB');
+assert.equal(rendered.get('span#vfo-b-mode'), 'USB');
+context.rrObjectCache.objects.get('b').properties.get('mode').state.available = false;
+context.webui_refresh_room_vfo();
+assert.equal(rendered.get('span#vfo-b-mode'), 'unavailable');
+context.webui_parse_cat_msg({cat: {cmd: 'freq', vfo: 'B', freq: 145000000}});
+assert.equal(rendered.get('span#vfo-b-freq'), 'unavailable', 'receipt acknowledgement cannot confirm frequency');
 
 context.active_vfo = 'B';
 context.webui_parse_cat_msg({cat: {state: {vfo: 'A', active: true}}});

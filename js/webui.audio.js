@@ -34,6 +34,7 @@ var audio_aac_timestamp = 0;
 // RX context
 const rxCtx = new AudioContext({ sampleRate: audio_rate_rx });
 let rxTime = rxCtx.currentTime;
+const rxPlaybackNodes = new Set();
 
 // TX context
 const txCtx = new AudioContext({ sampleRate: audio_rate_tx });
@@ -50,6 +51,11 @@ txGainNode.connect(txCtx.destination);
 
 // Halt playback
 function stopPlayback() {
+   for (const source of rxPlaybackNodes) {
+      try { source.stop(); } catch (_) {}
+      source.disconnect();
+   }
+   rxPlaybackNodes.clear();
    rxTime = rxCtx.currentTime;
 }
 
@@ -118,7 +124,7 @@ function webui_append_tx_samples(samples) {
          for (var i = 0; i < frameSamples.length; i++) payload[i] = webui_encode_mulaw(frameSamples[i]);
       }
       var frame = binframe_build_audio(codec, 1, chan.vfo, chan.rig, chan.stream, payload);
-      if (frame) socket.send(frame);
+      if (frame) rrSendBinary(socket, frame);
    }
 }
 
@@ -343,6 +349,10 @@ function decodePCM16ToFloat32(buffer) {
 function playFloat32Samples(float32Data, sampleRate) {
    const samplesPerPacket = float32Data.length;
    const duration = samplesPerPacket / sampleRate;
+   if (typeof socket !== 'undefined' && socket && socket.readyState !== 1) return;
+   if (!Number.isFinite(duration) || duration <= 0 || duration > 0.25) return;
+   // Replace stale scheduled audio rather than accumulating a delayed station.
+   if (rxTime - rxCtx.currentTime > 0.25) stopPlayback();
 
    const audioBuffer = rxCtx.createBuffer(1, samplesPerPacket, sampleRate);
    audioBuffer.copyToChannel(float32Data, 0);
@@ -359,6 +369,8 @@ function playFloat32Samples(float32Data, sampleRate) {
       rxTime = rxNow + rxLead;
    }
 
+   rxPlaybackNodes.add(source);
+   source.onended = () => { rxPlaybackNodes.delete(source); source.disconnect(); };
    source.start(rxTime);
    rxTime += duration;
 }
@@ -383,7 +395,7 @@ function ws_send_capab_msg() {
          "codecs": codecs.join(" ")
       }
    }
-   socket.send(JSON.stringify(capab_msg));
+   rrSendMessage(socket, capab_msg);
 }
 
 function webui_audio_codec_list() {
@@ -512,24 +524,24 @@ function ws_send_codec_for_direction(codec, direction, onlyUuid) {
          }
          if (codec === 'none') {
             if (chan.subscribed) {
-               socket.send(JSON.stringify({
+               rrSendMessage(socket, {
                   "msg": { "type": "media" },
                   "media": { "cmd": "unsubscribe", "chan-uuid": uuid }
-               }));
+               });
             }
             chan.subscribed = false;
             chan.disabled = true;
             chan.pendingCodec = '';
             return;
          }
-         socket.send(JSON.stringify({
+         rrSendMessage(socket, {
             "msg": { "type": "media" },
             "media": {
                "cmd": "codec",
                "codec": codec,
                "chan-uuid": uuid
             }
-         }));
+         });
          if (chan.disabled && !chan.subscribed) {
             chan.pendingCodec = codec;
             chan.subscribed = true;

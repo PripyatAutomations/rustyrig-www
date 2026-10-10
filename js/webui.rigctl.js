@@ -74,8 +74,7 @@ function vfo_edit_init() {
             mode: val
          }
       };
-      let json_msg = JSON.stringify(msg)
-      socket.send(json_msg);
+      rrSendMessage(socket, msg);
    });
 
    $('#rig-width').on('input', function() {
@@ -119,7 +118,7 @@ function webui_refresh_room_vfo() {
    if (!object || object.removed) return;
    const value = name => {
       const state = object.properties.get(name)?.state;
-      return state?.known ? state.value : undefined;
+      return state?.known && state?.available ? state.value : undefined;
    };
    const vfo = String(active_vfo).toLowerCase();
    const frequency = value('frequency'), mode = value('mode'), width = value('width');
@@ -127,8 +126,12 @@ function webui_refresh_room_vfo() {
       $('span#vfo-' + vfo + '-freq').html(format_freq(frequency) + '&nbsp;Hz');
       freq_set_digits(frequency, $('#rig-freq'));
    }
-   if (mode !== undefined) $('span#vfo-' + vfo + '-mode').html(mode);
-   if (width !== undefined) $('span#vfo-' + vfo + '-width').html(width + '&nbsp;Hz');
+   if (frequency === undefined) {
+      $('span#vfo-' + vfo + '-freq').html('unavailable');
+      if (typeof freq_set_digits === 'function') freq_set_digits('---------', $('#rig-freq'));
+   }
+   $('span#vfo-' + vfo + '-mode').html(mode !== undefined ? mode : 'unavailable');
+   $('span#vfo-' + vfo + '-width').html(width !== undefined ? width + '&nbsp;Hz' : 'unavailable');
 }
 
 function ptt_btn_init() {
@@ -170,8 +173,7 @@ function ptt_btn_init() {
             ptt: state
          }
       };
-      let json_msg = JSON.stringify(msg)
-      socket.send(json_msg);
+      rrSendMessage(socket, msg);
    });
 }
 
@@ -233,8 +235,8 @@ function ptt_confirm_state(user, vfo, state, room) {
 // the next confirmed PTT state arrives. PARITY: rrclient/events.c
 // rrclient_handle_ptt_tot() & rrclient/gtk.ptt-btn.c ptt_button_tot_expired()
 function ptt_tot_expired(msgObj) {
-   var tot = (msgObj["ptt.tot-expired"] && msgObj["ptt.tot-expired"].secs) ? msgObj["ptt.tot-expired"].secs : 300;
-   var detail = msgObj["ptt.tot-expired"] || {};
+   var tot = (msgObj.ptt.tot && msgObj.ptt.tot.secs) ? msgObj.ptt.tot.secs : 300;
+   var detail = msgObj.ptt.tot || {};
 
    ptt_active = false;
    ptt_by_vfo[active_vfo || 'A'] = false;
@@ -280,20 +282,9 @@ function webui_parse_cat_msg(msgObj) {
          ptt_confirm_state(user, ptt_vfo, ptt_state, msgObj.cat.room);
          ptt_button_apply();
       }
-   } else if (cmd === 'freq') {  // broadcast of a user freq change
-      var vfo = (msgObj.cat.vfo || 'A').toLowerCase();
-      var freq = msgObj.cat.freq;
-      if (typeof freq !== 'undefined' && freq > 0) {
-         $('span#vfo-' + vfo + '-freq').html(format_freq(freq) + '&nbsp;Hz');
-         if (vfo.toUpperCase() === active_vfo) freq_set_digits(freq, $('#rig-freq'));
-         $('.vfo-changed').removeClass('vfo-changed');
-      }
-   } else if (cmd === 'mode') {  // broadcast of a user mode change
-      var vfo = (msgObj.cat.vfo || 'A').toLowerCase();
-      var mode = msgObj.cat.mode;
-      if (typeof mode !== 'undefined') {
-         $('span#vfo-' + vfo + '-mode').html(mode);
-      }
+   } else if (cmd) {
+      // PARITY: rrclient/vfo.c: requests never confirm observed hardware state.
+      return;
    } else {  // Nope, it's a state message
       var state = msgObj.cat.state;
 //      console.log("state:", state);
@@ -325,6 +316,12 @@ function webui_parse_cat_msg(msgObj) {
          if (user) UserCache.update({ name: user, ptt: ptt_state });
          ptt_confirm_state(user, state_vfo, ptt_state, msgObj.cat.room);
          ptt_button_apply();
+      }
+      for (const field of ['freq', 'mode', 'width']) {
+         if (state[field + '-available'] === false) {
+            $('span#vfo-' + vfo_id + '-' + field).html('unavailable');
+            if (field === 'freq' && vfo_id.toUpperCase() === active_vfo) freq_set_digits('---------', $('#rig-freq'));
+         }
       }
       if (typeof freq !== 'undefined') {
          $('span#vfo-' + vfo_id + '-freq').html(format_freq(freq) + '&nbsp;Hz');
@@ -360,4 +357,17 @@ function webui_parse_cat_msg(msgObj) {
      //                                '<span>RX: ' + power + '</span>';
       $('#chat-rig-status span#vfo-status').html(status_msg);
    }
+}
+
+function webui_connection_state_lost() {
+   ptt_active = false;
+   ptt_by_vfo = {};
+   ptt_pending = false;
+   if (ptt_pending_timer) clearTimeout(ptt_pending_timer);
+   ptt_pending_timer = null;
+   ptt_button_apply();
+   for (const vfo of ['a', 'b']) {
+      for (const field of ['freq', 'mode', 'width']) $('span#vfo-' + vfo + '-' + field).html('unavailable');
+   }
+   if (typeof freq_set_digits === 'function') freq_set_digits('---------', $('#rig-freq'));
 }

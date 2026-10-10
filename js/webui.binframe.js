@@ -54,8 +54,7 @@ const RR_BINFRAME_DIR_NA = 0xFF;
 // Parse an ArrayBuffer into a binframe object:
 //    { subsystem, codec, dir, vfo, rig, stream, seq, payload_len, ts,
 //      payload (Uint8Array of the payload bytes) }
-// Returns null for legacy (non-'RR') or invalid frames; caller may then
-// fall back to legacy handling.
+// Returns null for invalid frames; there is no legacy/raw fallback.
 function binframe_parse(buf) {
    if (!(buf instanceof ArrayBuffer) || buf.byteLength < RR_BINFRAME_HDR_LEN) {
       return null;

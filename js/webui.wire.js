@@ -1,33 +1,7 @@
-/* Compact object/property, auth and connection codec foundation; not yet used by live transport.
+/* Compact RustyRig wire codec and bounded send helpers.
  * PARITY: rustyrig-fw/librrprotocol/wire.c. No legacy wire decoder. */
 'use strict';
-const rrWireOperations = new Set([
-   'object.snapshot', 'object.unsubscribe', 'object.inventory', 'object.begin',
-   'object.descriptor', 'object.added', 'object.removed', 'object.end',
-   'object.result', 'object.inventory-entry', 'object.inventory-end',
-   'property.set', 'property.descriptor', 'property.state', 'property.changed', 'property.result',
-   'hello', 'ping', 'pong', 'error', 'notice', 'alert',
-   'auth.login', 'auth.pass', 'auth.logout', 'auth.challenge', 'auth.authorized', 'auth.error'
-]);
-const rrWireFields = {
-   object: new Set(['uuid', 'type', 'owner', 'alias', 'name', 'lifecycle', 'backend', 'room']),
-   property: new Set(['name', 'type', 'readable', 'writable', 'unit', 'minimum', 'maximum',
-      'step', 'enum', 'observed', 'known', 'available', 'version', 'value'])
-};
-Object.assign(rrWireFields, {
-   auth: new Set(['user','error','nonce','pass','token','ts','privs','server','password-change-required','password-expires','password-set','msg']),
-   hello: new Set(['swver','hwver','role']),
-   error: new Set(['code','from','msg','target','ts','vfo']),
-   notice: new Set(['msg']), alert: new Set(['from','msg','ts']),
-   ping: new Set(['ts']), pong: new Set(['ts'])
-});
-const rrWireMetadata = new Set([
-   'target', 'request.id', 'request.room', 'stream.epoch', 'stream.seq', 'result.code',
-   'inventory.kind', 'inventory.name', 'inventory.depth', 'inventory.uuid', 'inventory.room',
-   'inventory.backend', 'inventory.frequency', 'inventory.codec', 'inventory.direction',
-   'inventory.subsystem', 'inventory.coordinates', 'inventory.source', 'inventory.service',
-   'inventory.state', 'inventory.access', 'inventory.action'
-]);
+const rrWireRegistry = typeof module !== 'undefined' ? require('./webui.wire.registry.js') : rrWireSchema;
 
 function rrWireScalar(value) {
    if (typeof value === 'number') return Number.isFinite(value) &&
@@ -54,6 +28,7 @@ function rrWireFlatten(value, path = '', out = {}) {
    if (!value || typeof value !== 'object' || Array.isArray(value) || !Object.keys(value).length)
       throw new Error('Invalid wire value');
    for (const key of Object.keys(value)) {
+      if (value[key] === undefined) continue;
       if (!/^[a-z][a-z0-9_-]{0,62}$/.test(key)) throw new Error('Invalid field name');
       rrWireFlatten(value[key], path ? path + '.' + key : key, out);
    }
@@ -75,27 +50,25 @@ function rrWireAssign(out, path, value) {
 
 function rrWireTransform(message, encode) {
    const flat = rrWireFlatten(message);
-   const family = encode ? flat['msg.type'] : typeof flat.op === 'string' ? flat.op.split('.')[0] : null;
-   const op = encode ? flat[family + '.cmd'] ? family + '.' + flat[family + '.cmd'] :
-      family === 'auth' && flat['auth.error'] ? 'auth.error' : family : flat.op;
-   if (!rrWireOperations.has(op) || (encode && op === 'auth.error' && flat['auth.cmd'] !== undefined))
-      throw new Error('Unsupported wire operation');
-   const out = encode ? {op} : {msg: {type: family}};
-   if (!encode && op.includes('.') && op !== 'auth.error') out[family] = {cmd: op.slice(family.length + 1)};
+   const rule = rrWireRegistry.groups.find(group => encode ? group.type === flat['msg.type'] &&
+      Object.entries(group.operations).some(([op, command]) => command === (group.command_key ? flat[group.command_key] ?? null : null)) :
+      Object.hasOwn(group.operations, flat.op));
+   if (!rule) throw new Error('Unsupported wire operation');
+   const op = encode ? Object.keys(rule.operations).find(key => rule.operations[key] === (rule.command_key ? flat[rule.command_key] ?? null : null)) : flat.op;
+   const out = encode ? {op} : {msg: {type: rule.type}};
+   if (!encode && rule.operations[op]) rrWireAssign(out, rule.command_key, rule.operations[op]);
    for (const [key, value] of Object.entries(flat)) {
-      if (encode ? key === 'msg.type' || key === family + '.cmd' : key === 'op') continue;
-      let destination = key;
-      const model = family === 'object' || family === 'property';
-      if (key === (encode ? 'msg.ts' : 'time')) {
-         destination = encode ? 'time' : 'msg.ts';
-      } else if ((family === 'ping' || family === 'pong') && key === (encode ? 'ping.ts' : 'echo')) {
-         destination = encode ? 'echo' : 'ping.ts';
-      } else if (!model || !rrWireMetadata.has(key)) {
-         const field = encode && key.startsWith(family + '.') ? key.slice(family.length + 1) : key === 'text' ? 'msg' : key;
-         if ((!encode && key === 'msg') || (encode && !key.startsWith(family + '.')) || !rrWireFields[family].has(field))
-            throw new Error('Unknown wire field');
-         destination = encode ? field === 'msg' ? 'text' : field : family + '.' + field;
+      if (encode ? key === 'msg.type' || key === rule.command_key : key === 'op') continue;
+      let destination = null;
+      for (const [internal, wire] of Object.entries(rule.fields)) {
+         const from = encode ? internal : wire, to = encode ? wire : internal;
+         if (from === key) { destination = to; break; }
+         if (from.endsWith('*') && key.startsWith(from.slice(0, -1))) {
+            const suffix = key.slice(from.length - 1);
+            if (suffix && !suffix.includes('.')) { destination = to.slice(0, -1) + suffix; break; }
+         }
       }
+      if (!destination) throw new Error('Unknown wire field');
       rrWireAssign(out, destination, value);
    }
    return out;
@@ -163,4 +136,44 @@ function rrWireDecode(text) {
    } catch (_) { return null; }
 }
 
-if (typeof module !== 'undefined') module.exports = {rrWireEncode, rrWireDecode};
+if (typeof module !== 'undefined') module.exports = {rrWireEncode, rrWireDecode, rrSendMessage, rrSendBinary, rrObserveAck};
+
+// All application messages pass through the same strict codec and queue guard.
+// No commands are retained for replay across reconnects.
+const rrLatencySamples = new WeakMap();
+function rrObserveAck(sock, message) {
+   const pending = sock && rrLatencySamples.get(sock);
+   if (!pending || message.request?.id !== pending.id || typeof performance === 'undefined') return null;
+   const rtt = Math.max(0, performance.now() - pending.sent);
+   rrLatencySamples.delete(sock);
+   return rtt;
+}
+
+function rrSendMessage(sock, message) {
+   const text = rrWireEncode(message);
+   if (text === null) {
+      console.error('Rejected outgoing RustyRig message', message && message.msg && message.msg.type);
+      return false;
+   }
+   const sent = rrSendFrame(sock, text, new TextEncoder().encode(text).length, 1048576);
+   if (sent && message.request?.id && typeof performance !== 'undefined') {
+      const previous = rrLatencySamples.get(sock), time = performance.now();
+      if (!previous || time - previous.sent >= 5000) rrLatencySamples.set(sock, {id: message.request.id, sent: time});
+   }
+   if (!sent && typeof ChatBox !== 'undefined') ChatBox.Append('<div class="chat-status error">Command was not sent: connection unavailable or outgoing queue full.</div>');
+   return sent;
+}
+
+function rrSendBinary(sock, frame) {
+   return rrSendFrame(sock, frame, frame.byteLength, 8192);
+}
+
+function rrSendFrame(sock, frame, size, limit) {
+   if (!sock || sock.readyState !== 1) return false;
+   if (size > limit || (sock.bufferedAmount || 0) > limit - size) {
+      console.warn('RustyRig outgoing queue full; frame not queued');
+      return false;
+   }
+   try { sock.send(frame); return true; }
+   catch (error) { console.error('RustyRig send failed', error); sock.close(); return false; }
+}
