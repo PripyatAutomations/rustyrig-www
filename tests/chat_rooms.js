@@ -77,3 +77,11 @@ assert.equal(box.html, 'channel traffic');
 chat.SwitchRoom('#rig');
 assert.equal(box.html, 'rig trafficupdated rig traffic');
 console.log('PASS: multiroom chat switches tabs and ignores duplicate joins');
+
+context.webui_authoritative_room = '#nycvny37';
+context.webui_rejoin_open_rooms = () => {};
+context.webui_parse_chat_msg({talk: {cmd: 'room-list', rooms:
+   '#nycvny37 #nycvny37-rig0 #nycvny37-rig1 #rplywv00 #rplywv00-rig0 #rplywv00-rig1 #nycvny370-rig0'}});
+assert.deepEqual(Array.from(vm.runInContext('webui_available_rooms', context)),
+   ['#nycvny37', '#nycvny37-rig0', '#nycvny37-rig1', '#rplywv00', '#rplywv00-rig0', '#rplywv00-rig1', '#nycvny370-rig0']);
+console.log('PASS: room-list preserves all rooms returned by the server');

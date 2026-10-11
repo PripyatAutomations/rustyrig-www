@@ -1300,7 +1300,7 @@ function webui_parse_chat_msg(msgObj) {
             msg: { type: 'talk' }, talk: { cmd: 'join', target: room }
          }));
       append('<div><span class="notice">Available rooms: ' +
-         webui_escape_html(msgObj.talk.rooms || '(none)') + '</span></div>');
+         webui_escape_html(webui_available_rooms.join(' ') || '(none)') + '</span></div>');
       return;
    }
    if (cmd === 'room-vfo-list') {
