@@ -18,6 +18,7 @@ function collection(selector) {
          },
          append(value) { element.html += value; return this; },
          empty() { element.html = ''; return this; },
+         on(name, selector, callback) { element.handlers = element.handlers || {}; element.handlers[name] = callback; return this; },
          scrollTop() { return this; },
          children() { return {length: 0, slice() { return {remove() {}}; }}; },
          attr(name) { return element.attrs?.[name]; },
@@ -90,10 +91,48 @@ context.webui_parse_chat_msg({talk: {cmd: 'room-list', rooms: '#local #remote',
    'remote-rooms': '#remote', servers: 'local ↗remote'}});
 assert.deepEqual(Array.from(vm.runInContext('webui_available_rooms', context)), ['#local', '#remote']);
 assert(chat.rooms['#nycvny37'].includes('Servers (↗ remote): local ↗remote'));
-assert(chat.rooms['#nycvny37'].includes('Available rooms: #local ↗#remote'));
+assert(chat.rooms['#nycvny37'].includes('data-room="#local">#local</a> ↗'));
 console.log('PASS: remote LIST markers preserve plain completion targets');
 context.webui_parse_chat_msg({msg: {}, talk: {cmd: 'msg', msg_type: 'notice',
    target: '#rig', from: '***SERVER***', data: 'CALL@remote <script>'}});
 assert(box.html.includes('CALL@remote &lt;script&gt;'));
 assert(!box.html.includes('CALL@remote <script>'));
 console.log('PASS: /users notices appear in issuing room and escape user text');
+
+const linked = context.chat_room_links('<div title="a>#attribute">See #remote-rig0, #room. &#123; ' +
+   '<a href="https://example/#fragment">https://example/#fragment</a> ' +
+   '<a href="#" class="user">#callsign</a></div>');
+assert(linked.includes('data-room="#remote-rig0">#remote-rig0</a>,'));
+assert(linked.includes('data-room="#room">#room</a>.'));
+assert(linked.includes('title="a>#attribute"'));
+assert(linked.includes('&#123;'));
+assert(!linked.includes('data-room="#fragment"'));
+assert(!linked.includes('data-room="#callsign"'));
+const sent = [];
+context.socket = {id: 'this-window-connection'};
+context.rrSendMessage = (socket, message) => sent.push({socket, message});
+chat.ActivateRoom('#RIG');
+assert.equal(chat.current_room, '#rig');
+assert.equal(sent.length, 0);
+boxes['#chat-input'].html = 'unfinished draft';
+chat.ActivateRoom('#remote-rig0');
+assert.equal(sent[0].socket, context.socket);
+assert.equal(sent[0].message.talk.target, '#remote-rig0');
+assert.equal(sent[0].message.talk.cmd, 'join');
+assert.equal(boxes['#chat-input'].html, 'unfinished draft');
+chat.ActivateRoom('#remote /quit');
+assert.equal(sent.length, 1);
+console.log('PASS: room links select existing tabs or join through this connection without touching drafts');
+
+let prevented = false;
+const click = {preventDefault() { prevented = true; },
+   currentTarget: {getAttribute() { return '#clicked-room'; }}};
+context.getSelection = () => 'selected transcript';
+box.handlers.click(click);
+assert(prevented);
+assert.equal(sent.length, 1);
+context.getSelection = () => '';
+box.handlers.click(click);
+assert.equal(sent.length, 2);
+assert.equal(sent[1].message.talk.target, '#clicked-room');
+console.log('PASS: delegated room clicks retain selection and activate unselected links');

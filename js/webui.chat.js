@@ -18,6 +18,26 @@ function msg_create_links(message) {
    return result + webui_escape_html(text.slice(offset));
 }
 
+// PARITY: rustyrig-fw/rrclient/gtk/gtk.chat.c gtk_chat_link_inserted/link_event.
+// Decorate text only, leaving existing links and all HTML attributes intact.
+function chat_room_links(html) {
+   let inAnchor = false;
+   return String(html).replace(/(<(?:[^"'<>]|"[^"]*"|'[^']*')*>)|([^<]+)/g, (part, tag, text) => {
+      if (tag) {
+         if (/^<a(?:\s|>)/i.test(tag)) inAnchor = true;
+         if (/^<\/a\s*>/i.test(tag)) inAnchor = false;
+         return tag;
+      }
+      if (inAnchor) return text;
+      return text.replace(/(^|[^A-Za-z0-9_/#&])(#([A-Za-z0-9_][A-Za-z0-9_.+-]*))/g,
+         (match, prefix, room) => {
+            const clean = room.replace(/\.+$/, '');
+            return prefix + '<a href="#" class="chat-room-link" data-room="' + clean + '">' +
+               clean + '</a>' + room.slice(clean.length);
+         });
+   });
+}
+
 // Callsign responses contain data returned by an external lookup service.
 // Escape it before inserting it into the chat DOM.
 function webui_escape_html(value) {
@@ -378,6 +398,11 @@ class WebUiChat {
       this.scrollback_purge_lines = 100;
       this.rooms = Object.create(null);
       this.current_room = null;
+      this.output.on('click', 'a.chat-room-link', event => {
+         event.preventDefault();
+         if (typeof window.getSelection === 'function' && String(window.getSelection())) return;
+         this.ActivateRoom(event.currentTarget.getAttribute('data-room'));
+      });
    }
 
    room_name(room) {
@@ -420,6 +445,16 @@ class WebUiChat {
       return room;
    }
 
+   ActivateRoom(room) {
+      if (!/^#[A-Za-z0-9_][A-Za-z0-9_.+-]*$/.test(room)) return;
+      const existing = Object.keys(this.rooms).find(name => name.toLowerCase() === room.toLowerCase());
+      if (existing) {
+         this.SwitchRoom(existing);
+      } else {
+         rrSendMessage(socket, {msg: {type: 'talk'}, talk: {cmd: 'join', target: room}});
+      }
+   }
+
    RemoveRoom(room) {
       if (!room || !Object.prototype.hasOwnProperty.call(this.rooms, room)) return;
       delete this.rooms[room];
@@ -434,6 +469,7 @@ class WebUiChat {
 
    // Add a message to the chat
    Append(msg, room) {
+      msg = chat_room_links(msg);
       room = this.ensure_room(room, false);
       this.output = $(this.output_selector);
       if (room !== this.current_room) {
