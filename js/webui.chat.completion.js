@@ -121,7 +121,10 @@ function chat_parameter_candidates(beforeCaret) {
       const tx = command === '/txcodec';
       if (arg === 1 && !media) values = ['LIST','NONE'].concat(typeof webui_audio_codec_list === 'function' ? webui_audio_codec_list() : []);
       if (arg === 1 && media) values = ['LIST', 'SUBSCRIBE', 'UNSUBSCRIBE', 'SUB', 'UNSUB'];
-      if (arg === 2 && (media ? ['SUBSCRIBE', 'UNSUBSCRIBE', 'SUB', 'UNSUB'].includes(first) : first !== 'LIST')) {
+      const sub = media && ['SUBSCRIBE', 'SUB'].includes(first);
+      if (sub && (arg === 2 || (arg === 3 && tokens[2] && tokens[2][0] !== '-'))) values.push('-proxy');
+      if ((arg === 2 || (arg === 3 && sub && tokens[2] === '-proxy')) &&
+          (media ? ['SUBSCRIBE', 'UNSUBSCRIBE', 'SUB', 'UNSUB'].includes(first) : first !== 'LIST')) {
          const channels = typeof mediaChannels === 'undefined' ? {} : mediaChannels;
          const numbers = typeof mediaLastList === 'undefined' ? [] : mediaLastList;
          Object.keys(channels).forEach(uuid => {

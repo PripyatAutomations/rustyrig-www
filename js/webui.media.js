@@ -82,7 +82,7 @@ function mediaPartRoom(room) {
    mediaSyncActiveVfo();
 }
 
-function subscribeMediaChannel(uuid, automatic) {
+function subscribeMediaChannel(uuid, automatic, transport) {
    if (!uuid || !window.socket || socket.readyState !== WebSocket.OPEN) {
       return;
    }
@@ -91,6 +91,7 @@ function subscribeMediaChannel(uuid, automatic) {
       "msg": { "type": "media" },
       "media": { "cmd": "subscribe", "chan-uuid": uuid }
    };
+   if (transport === "ws") sub.media.transport = "ws";
    rrSendMessage(socket, sub);
    console.log("Subscribing to media channel", uuid);
 }

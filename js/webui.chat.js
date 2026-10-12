@@ -213,7 +213,7 @@ const webui_command_help = [
    {
       "cmd": "media",
       "help_section": "Media",
-      "desc": "Media channels: LIST | SUBSCRIBE <name|uuid|#> | UNSUBSCRIBE <name|uuid|#>",
+      "desc": "Media channels: LIST | SUBSCRIBE [-proxy] <name|uuid|#> | UNSUBSCRIBE <name|uuid|#>",
       "admin": false
    },
    {
@@ -975,15 +975,28 @@ function parse_chat_cmd(e) {
                   }
                } else if (sub === 'sub' || sub === 'subscribe' ||
                           sub === 'unsub' || sub === 'unsubscribe') {
-                  if (args.length < 3 || args[2] === '') {
-                     ChatBox.Append('<div><span class="error">Usage: /media ' + sub + ' &lt;name|uuid|#number&gt;</span></div>',ChatBox.current_room);
+                  var unsub = sub.startsWith('un');
+                  var transport = null, target = null, invalid = false;
+                  args.slice(2).forEach(arg => {
+                     const option = arg.toLowerCase();
+                     if (option === '-direct' || option === '-proxy') {
+                        if (unsub || transport) invalid = true;
+                        transport = option;
+                     } else if (arg && arg[0] !== '-' && !target) target = arg;
+                     else invalid = true;
+                  });
+                  if (invalid || !target) {
+                     mediaCommandNotice('Usage: /media ' + sub + ' [-direct|-proxy] <name|uuid|#number>', true);
                      break;
                   }
-                  var chan = mediaChanLookup(args[2]);
-                  var unsub = (sub.startsWith('un'));
+                  if (transport === '-direct') {
+                     mediaCommandNotice('Direct RTP requires the native client; use -proxy in the browser', true);
+                     break;
+                  }
+                  var chan = mediaChanLookup(target);
 
                   if (!chan) {
-                     mediaCommandNotice("Unknown or ambiguous channel '" + args[2] +
+                     mediaCommandNotice("Unknown or ambiguous channel '" + target +
                         "'; use /media list and choose a name, #number or UUID", true);
                      break;
                   }
@@ -992,13 +1005,13 @@ function parse_chat_cmd(e) {
                      if (!chan.subscribed) mediaCommandNotice('Not subscribed to ' + label);
                      else {
                         mediaCommandNotice('Unsubscribing from ' + label);
-                        unsubscribeMediaChannel(chan.uuid);
+                        unsubscribeMediaChannel(chan.uuid, false, transport === '-proxy' ? 'ws' : null);
                      }
                   } else {
-                     if (chan.subscribed) mediaCommandNotice('Already subscribed to ' + label);
+                     if (chan.subscribed && !transport) mediaCommandNotice('Already subscribed to ' + label);
                      else {
                         mediaCommandNotice('Subscribing to ' + label);
-                        subscribeMediaChannel(chan.uuid);
+                        subscribeMediaChannel(chan.uuid, false, transport === '-proxy' ? 'ws' : null);
                      }
                   }
                } else {

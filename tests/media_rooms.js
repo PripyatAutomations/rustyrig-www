@@ -74,3 +74,7 @@ ctx.webui_room_controls['#rig1'] = {joined: true, vfoMask: 1};
 ctx.mediaSelectRoom('#rig1');
 assert.equal(ctx.mediaChannels['shared-rx'].subscribed, false);
 console.log('PASS: shared rig audio survives A/B selection and respects rig/subroom membership');
+
+ctx.subscribeMediaChannel('rig0-rx', false, 'ws');
+assert.equal(sent[sent.length - 1].transport, 'ws');
+console.log('PASS: browser explicit WebSocket subscription transport');
