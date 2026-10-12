@@ -119,6 +119,12 @@ const webui_command_help = [
       "admin": false
    },
    {
+      "cmd": "users",
+      "help_section": "Chat and rooms",
+      "desc": "List online users and their owning servers",
+      "admin": false
+   },
+   {
       "cmd": "names",
       "help_section": "Chat and rooms",
       "desc": "List users with privilege flags",
@@ -1360,6 +1366,9 @@ function webui_parse_chat_msg(msgObj) {
             set_highlight("chat");
             // XXX: Update the window title to show a pending message
          }
+      } else if (msg_type === "notice") {
+         // PARITY: rustyrig-fw/rrclient/events.c notice replies, including /users.
+         append('<div class="chat-status notice">' + sender + ': ' + webui_escape_html(message) + '</div>');
       } else if (msg_type === "priv" || msg_type === "privmsg") {
          message = msg_create_links(message);
          append('<div>' + msg_ts + ' <span class="chat-msg-prefix">*' +

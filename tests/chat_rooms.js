@@ -85,3 +85,15 @@ context.webui_parse_chat_msg({talk: {cmd: 'room-list', rooms:
 assert.deepEqual(Array.from(vm.runInContext('webui_available_rooms', context)),
    ['#nycvny37', '#nycvny37-rig0', '#nycvny37-rig1', '#rplywv00', '#rplywv00-rig0', '#rplywv00-rig1', '#nycvny370-rig0']);
 console.log('PASS: room-list preserves all rooms returned by the server');
+
+context.webui_parse_chat_msg({talk: {cmd: 'room-list', rooms: '#local #remote',
+   'remote-rooms': '#remote', servers: 'local ↗remote'}});
+assert.deepEqual(Array.from(vm.runInContext('webui_available_rooms', context)), ['#local', '#remote']);
+assert(chat.rooms['#nycvny37'].includes('Servers (↗ remote): local ↗remote'));
+assert(chat.rooms['#nycvny37'].includes('Available rooms: #local ↗#remote'));
+console.log('PASS: remote LIST markers preserve plain completion targets');
+context.webui_parse_chat_msg({msg: {}, talk: {cmd: 'msg', msg_type: 'notice',
+   target: '#rig', from: '***SERVER***', data: 'CALL@remote <script>'}});
+assert(box.html.includes('CALL@remote &lt;script&gt;'));
+assert(!box.html.includes('CALL@remote <script>'));
+console.log('PASS: /users notices appear in issuing room and escape user text');
