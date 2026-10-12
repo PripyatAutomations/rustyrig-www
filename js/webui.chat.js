@@ -975,6 +975,10 @@ function parse_chat_cmd(e) {
             // All these are sent to the server as-is //
             //   It will respond if allowed or not    //
             ////////////////////////////////////////////
+            // PARITY: rustyrig-fw/rrclient/cmd.chat.c cmd_users().
+            case 'users':
+               args_obj = {target: ChatBox.current_room};
+               break;
             case 'kick':
             case 'mute':
             case 'names':
@@ -1299,8 +1303,12 @@ function webui_parse_chat_msg(msgObj) {
          rrSendMessage(socket, {
             msg: { type: 'talk' }, talk: { cmd: 'join', target: room }
          }));
+      // PARITY: rustyrig-fw/rrclient/events.c LIST decoration is presentation only.
+      const remoteRooms = new Set(String(msgObj.talk['remote-rooms'] || '').split(/\s+/).map(room => room.toLowerCase()));
+      if (msgObj.talk.servers) append('<div><span class="notice">Servers (↗ remote): ' +
+         webui_escape_html(msgObj.talk.servers) + '</span></div>');
       append('<div><span class="notice">Available rooms: ' +
-         webui_escape_html(webui_available_rooms.join(' ') || '(none)') + '</span></div>');
+         webui_escape_html(webui_available_rooms.map(room => (remoteRooms.has(room.toLowerCase()) ? '↗' : '') + room).join(' ') || '(none)') + '</span></div>');
       return;
    }
    if (cmd === 'room-vfo-list') {
