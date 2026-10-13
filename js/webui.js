@@ -4,8 +4,8 @@
 var socket;
 var ws_kicked = false;		// were we kicked? stop autoreconnects if so
 let reconnecting = false;
-let reconnect_delay = 1;
-let reconnect_interval = [1, 2, 5, 10, 30, 60 ];
+let reconnect_delay = 60;
+
 var reconnect_timer;  		// so we can stop reconnects later
 var reconnect_tries = 0;	// how many times have we tried to connect?
 var max_reconnects = 10;	// maximum times we'll retry connecting
@@ -91,7 +91,7 @@ function ws_connect() {
       var my_ts = msg_timestamp(now);
       ChatBox.Append('<div class="chat-status">' + my_ts + '&nbsp;WebSocket connected.</div>');
       reconnecting = false; 		// Reset reconnect flag on successful connection
-      reconnect_delay = 1; 		// Reset reconnect delay to 1 second
+      reconnect_delay = 60; 		// Reset reconnect delay to 1 second
 
       UserCache.clear();
 
@@ -341,6 +341,11 @@ function handle_reconnect() {
       return;
    }
 
+   // PARITY: rrclient/connman.c global interval with per-server override.
+   const override = localStorage.getItem('reconnect-interval:' + make_ws_url());
+   const globalInterval = localStorage.getItem('reconnect-interval');
+   reconnect_delay = Number(override || globalInterval || 60);
+   if (!Number.isInteger(reconnect_delay) || reconnect_delay < 1 || reconnect_delay > 3600) reconnect_delay = 60;
    reconnecting = true;
    reconnect_tries++;
    show_connecting(true);
@@ -359,8 +364,7 @@ function handle_reconnect() {
    reconnect_timer = setTimeout(function() {
       ws_connect();
 
-      // increase delay for the next try
-      reconnect_delay = reconnect_interval[Math.min(reconnect_interval.length - 1, reconnect_interval.indexOf(reconnect_delay) + 1)];
+
    }, reconnect_delay * 1000);
 }
 
@@ -405,7 +409,19 @@ window.webui_inits.push(function webui_init() {
    // bind tab strip handlers
    $('span#tab-chat').click(function() { wm_switch_tab('chat'); });
    $('span#tab-rig').click(function() { wm_switch_tab('rig'); });
-   $('span#tab-config').click(function() { wm_switch_tab('cfg'); });
+   $('span#tab-config').click(function() {
+      $('#reconnect-global').val(localStorage.getItem('reconnect-interval') || '60');
+      $('#reconnect-server').val(localStorage.getItem('reconnect-interval:' + make_ws_url()) || '');
+      wm_switch_tab('cfg');
+   });
+   $('#reconnect-global, #reconnect-server').on('change', function() {
+      const key = this.id === 'reconnect-global' ? 'reconnect-interval' : 'reconnect-interval:' + make_ws_url();
+      if (!this.value && this.id === 'reconnect-server') { localStorage.removeItem(key); return; }
+      const seconds = Number(this.value);
+      if (Number.isInteger(seconds) && seconds >= 1 && seconds <= 3600) {
+         localStorage.setItem(key, String(seconds));
+      }
+   });
    $('span#tab-syslog').click(function() { wm_switch_tab('syslog'); });
 
    $('span#tab-dark').click(function() {

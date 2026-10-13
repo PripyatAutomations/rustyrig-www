@@ -13,6 +13,7 @@
       "webui.wire.js",
       "webui.media.health.js",
       "jquery.chroma-hash.js",
+      "webui.admin.js",
       "webui.chat.js",				// chat stuff
       "webui.winman.js",			// window manager
       "webui.input.js",				// mouyse/keyboard input
@@ -99,6 +100,7 @@
     <span id="tab-rig" class="menu-tab">rig</span>
     <span id="tab-chat" class="menu-tab">chat</span>
     <span id="tab-syslog" class="menu-tab">log</span>
+    <span id="tab-admin" class="menu-tab">admin</span>
     <span id="tab-config" class="menu-tab">cfg</span>
     <span id="tab-dark" class="menu-tab">dark</span>
     <span id="tab-logout" class="menu-tab menu-right">logout</span>
@@ -250,8 +252,11 @@
    <div id="win-syslog" class="window">
     <div id="syslog" class="syslog"></div>
    </div> <!-- win-syslog -->
+   <div id="win-admin" class="window"></div>
    <div id="win-cfg" class="window">
     <div id="win-cfg-ui" class="cfg-section">
+     <p><label>Reconnect interval (seconds): <input id="reconnect-global" type="number" min="1" max="3600" value="60"/></label></p>
+     <p><label>This server override: <input id="reconnect-server" type="number" min="1" max="3600" placeholder="Use global"/></label></p>
      <p><label for="autojoin-rooms">Rooms to join after login:</label>
       <input id="autojoin-rooms" type="text" placeholder="#rplywv00-rig0, #rplywv00-rig1"/>
       <small>Separate room names with commas or spaces.</small></p>

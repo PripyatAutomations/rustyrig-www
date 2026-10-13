@@ -1,3 +1,5 @@
+// PARITY: rrclient/gtk/gtk.ptt-btn.c: warnings persist until local acknowledgement.
+var ptt_tot_latched = false;
 /*
  * rig control (CAT over websocket)
  */
@@ -137,6 +139,11 @@ function webui_refresh_room_vfo() {
 function ptt_btn_init() {
    ptt_button_apply();
    $('button.rig-ptt').click(function() {
+      if (ptt_tot_latched) {
+         ptt_tot_latched = false;
+         ptt_button_apply();
+         return;
+      }
       const vfo = active_vfo || 'A';
       // PARITY: rrclient/gtk/gtk.ptt-btn.c: a held transmitter is stopped,
       // never automatically transferred to the requester.
@@ -192,7 +199,9 @@ function ptt_button_apply() {
    $('.rig-ptt').removeClass('red-btn green-btn yellow-btn tot-btn');
    ptt_set_vfo_locked(ptt_active);
    webui_apply_room_controls(webui_control_room());
-   if (ptt_pending) {
+   if (ptt_tot_latched) {
+      $('.rig-ptt').prop('disabled', false).addClass('tot-btn').text('TOT EXPIRE');
+   } else if (ptt_pending) {
       $('.rig-ptt').addClass('yellow-btn').html('PENDING');
    } else if (other_tx || ptt_active) {
       $('.rig-ptt').addClass('red-btn').html(tx_user ? 'TX: ' + tx_user : 'TX');
@@ -242,8 +251,8 @@ function ptt_tot_expired(msgObj) {
    ptt_by_vfo[active_vfo || 'A'] = false;
    ptt_pending = false;
    if (ptt_pending_timer) clearTimeout(ptt_pending_timer);
-   $('.rig-ptt').removeClass('red-btn green-btn yellow-btn tot-btn').addClass('tot-btn');
-   $('.rig-ptt').html('TIMED OUT ' + tot + 's');
+   ptt_tot_latched = true;
+   ptt_button_apply();
 
    if (typeof ChatBox !== 'undefined') {
       var who = detail.user || 'unknown user';

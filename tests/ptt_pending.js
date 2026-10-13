@@ -6,7 +6,7 @@ const timers = new Map();
 let nextTimer = 0;
 const widget = new Proxy({}, {get: (_, method) => (...args) => {
    if (method === 'click') click = args[0];
-   if (method === 'html') label = args[0];
+   if (method === 'html' || method === 'text') label = args[0];
    return widget;
 }});
 const sent = [];
@@ -101,3 +101,18 @@ context.webui_parse_cat_msg({cat: {state: {vfo: 'A', active: true}}});
 assert.equal(context.active_vfo, 'B', 'hardware polls must not select the client VFO');
 context.webui_parse_cat_msg({cat: {state: {vfo: 'A', selected: true}}});
 assert.equal(context.active_vfo, 'A', 'session acknowledgement selects its VFO');
+
+// TOT state echoes and redraws must not acknowledge the warning or send PTT.
+info('NOOB', false, 'A');
+context.ptt_tot_expired({ptt: {tot: {secs: 60}}});
+assert.equal(label, 'TOT EXPIRE');
+context.ptt_confirm_state('operator', 'A', false);
+context.ptt_button_apply();
+assert.equal(label, 'TOT EXPIRE');
+const beforeAck = sent.length;
+click();
+assert.equal(sent.length, beforeAck);
+assert.equal(label, 'PTT OFF');
+click();
+assert.equal(sent.length, beforeAck + 1);
+console.log('PASS: persistent TOT warning and acknowledgement consumes click locally');

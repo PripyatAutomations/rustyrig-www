@@ -1,7 +1,7 @@
 ///////////////
 // Windowing //
 ///////////////
-var available_tabs = [ 'login', 'rig', 'chat', 'syslog', 'cfg' ];
+var available_tabs = [ 'login', 'rig', 'chat', 'syslog', 'cfg', 'admin' ];
 var active_tab = 'chat';
 
 function wm_switch_tab(tab) {

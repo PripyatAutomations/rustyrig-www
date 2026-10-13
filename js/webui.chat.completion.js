@@ -103,6 +103,10 @@ function chat_parameter_candidates(beforeCaret) {
       if (arg === 2 && first === 'PASS') values = staff ? getCULNames() : [auth_user];
       if (arg === 2 && staff && ['REMOVE', 'LOCK', 'UNLOCK', 'PRIVS', 'RESETPW'].includes(first)) values = getCULNames();
       if (arg === 3 && staff && first === 'PRIVS') values = ['LIST', 'ADD', 'REMOVE', 'SET'];
+   } else if (command === '/link') {
+      if (arg === 1) values = ['LIST', 'OPEN', 'CLOSE'];
+   } else if (command === '/admin') {
+      if (arg === 1) values = ['USERS', 'ROOMS', 'AUDIT', 'PTT'];
    } else if (command === '/quota') {
       const unit = ['TX', 'BW'].includes(first), position = unit ? arg - 1 : arg;
       const action = unit ? (tokens[2] || '').toUpperCase() : first;

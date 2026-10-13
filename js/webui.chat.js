@@ -307,6 +307,12 @@ const webui_command_help = [
       "admin": true
    },
    {
+      "cmd": "link", "help_section": "Administration", "desc": "LIST | OPEN <stored-peer> | CLOSE <stored-peer>", "admin": true
+   },
+   {
+      "cmd": "admin", "help_section": "Administration", "desc": "USERS | ROOMS | AUDIT | PTT [before-id]", "admin": true
+   },
+   {
       "cmd": "user",
       "help_section": "Administration",
       "desc": "PASS <your-user> <password>; admin/owner: manage accounts",
@@ -1059,6 +1065,8 @@ function parse_chat_cmd(e) {
                }
                break;
 
+            case 'link':
+            case 'admin':
             case 'user':
                args_obj = {data: args.slice(1).join(' ')};
                break;
@@ -1293,6 +1301,10 @@ function handle_paste(e) {
 /////////////////////////////////
 function webui_parse_chat_msg(msgObj) {
    var cmd = msgObj.talk.cmd;
+   if (cmd === "admin") {
+      if (typeof adminResult === "function") adminResult(msgObj);
+      return;
+   }
    var message = msgObj.talk.data;
    var rawTarget = msgObj.talk.target || msgObj.talk.room || null;
    var privateMsg = msgObj.talk.msg_type === 'priv' ||
