@@ -131,16 +131,15 @@ function rrInventoryMessage(message) {
    if (cmd === 'inventory-entry') {
       const entry = message.inventory || {}, depth = Number(entry.depth);
       if (!Number.isInteger(depth) || depth < 0 || depth > 4) return true;
-      pending.visible[depth] = pending.kind === 'serial' || !room || room[0] !== '#' ||
-         (['site','rig'].includes(entry.kind) ? mediaResourceMatches(room,entry.room) :
-          depth > 0 && pending.visible[depth - 1]);
-      if (!pending.visible[depth]) return true;
-      if (!(pending.kind === 'rig' ? ['rig','vfo'].includes(entry.kind) : entry.kind === pending.kind)) return true;
-      if (pending.kind === 'serial' && entry.service !== 'serial') return true;
+      // Discovery spans the connected server's local and linked sites.
+      // PARITY: rrclient/objects.events.c inventory_message.
+      const parent = ['site','rig'].includes(entry.kind);
+      if (!parent && !(pending.kind === 'rig' ? entry.kind === 'vfo' : entry.kind === pending.kind)) return true;
+      if (entry.kind === 'serial' && entry.service !== 'serial') return true;
       pending.count++;
    }
    const line = cmd === 'inventory-end' ? 'End of ' + pending.kind + ' list (' + pending.count + ' entries).' :
-      rrInventoryLine({...message.inventory, depth: pending.kind === 'rig' ? message.inventory.depth : 0});
+      rrInventoryLine(message.inventory);
    if (line !== null) ChatBox.Append($('<div class="notice" style="white-space:pre-wrap"></div>').text(line), room);
    if (cmd === 'inventory-end') rrInventoryRequests.delete(id);
    return true;
@@ -157,7 +156,7 @@ function rrRigCommand(args) {
          return;
       }
       rrInventoryId = id;
-      rrInventoryRequests.set(id,{room: ChatBox.current_room || (typeof webui_authoritative_room !== 'undefined' ? webui_authoritative_room : '#rig'), visible: [], kind: ['gps','serial'].includes(args[0]) ? args[0] : 'rig', count: 0});
+      rrInventoryRequests.set(id,{room: ChatBox.current_room || (typeof webui_authoritative_room !== 'undefined' ? webui_authoritative_room : '#rig'), kind: ['gps','serial'].includes(args[0]) ? args[0] : 'rig', count: 0});
    }
    rrSendMessage(socket, {msg: {type: 'object'}, object: {cmd}, request: {id}});
 }

@@ -78,3 +78,13 @@ console.log('PASS: shared rig audio survives A/B selection and respects rig/subr
 ctx.subscribeMediaChannel('rig0-rx', false, 'ws');
 assert.equal(sent[sent.length - 1].transport, 'ws');
 console.log('PASS: browser explicit WebSocket subscription transport');
+
+const transportNotices = [];
+ctx.ChatBox = {current_room: '#shared', Append(value, room) { transportNotices.push([value, room]); }};
+ctx.$ = () => ({addClass() { return this; }, text(value) { return value; }});
+ctx.URL = URL;
+socket.url = 'wss://127.0.0.1:8420/ws/';
+announce('notice-rx', '#shared', true);
+ctx.webui_parse_media_msg({media: {cmd: 'subscribed', 'chan-uuid': 'notice-rx', stream: 7}});
+assert.match(transportNotices.at(-1)[0], /connected via proxy WebSocket at 127\.0\.0\.1:8420/);
+console.log('PASS: browser confirmed media transport notices include proxy type and endpoint');

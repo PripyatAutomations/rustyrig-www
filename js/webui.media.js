@@ -245,6 +245,14 @@ function webui_parse_media_msg(msgObj) {
             mediaChannels[u].codec = m.codec;
          }
          mediaApplyConfirmedCodec(mediaChannels[u]);
+         // PARITY: rrclient/media.c media_transport_notice. Browser media uses WebSocket proxy.
+         let endpoint = '';
+         try {
+            const url = new URL(socket.url);
+            endpoint = ' at ' + url.hostname + ':' + (url.port || (url.protocol === 'wss:' ? '443' : '80'));
+         } catch (_) {}
+         if (typeof ChatBox !== 'undefined' && ChatBox.Append)
+            mediaCommandNotice('Media ' + (mediaChannels[u].name || u) + ': connected via proxy WebSocket' + endpoint);
       }
       console.log("Subscribed to media channel", u, "stream", m.stream);
       return true;

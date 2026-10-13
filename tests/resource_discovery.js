@@ -53,7 +53,7 @@ ctx.rrGpsCommand(['gps', 'invalid']);
 assert.equal(destinations.at(-1), 'third');
 console.log('PASS: issuing room retained for concurrent and delayed inventory replies');
 
-for (const [room, expected] of [['#site-rig1.rx',['rig1']], ['#site',['rig1','rig10']], ['status',['rig1','rig10']]]) {
+for (const [room, expected] of [['#site-rig1.rx',['site','rig1','rig10','other']], ['#site',['site','rig1','rig10','other']], ['status',['site','rig1','rig10','other']]]) {
    ctx.ChatBox.current_room=room;ctx.rrRigCommand(['rig','list']);
    const id=sent.at(-1).request.id;displayed.length=0;
    for (const inventory of [
@@ -68,12 +68,12 @@ for (const [room, expected] of [['#site-rig1.rx',['rig1']], ['#site',['rig1','ri
    assert.deepEqual(displayed.map(line=>line.trim().split('  ')[0].split(' ').filter(Boolean).at(-1)),expected);
    ctx.rrInventoryMessage({object:{cmd:'inventory-end'},request:{id}});
 }
-console.log('PASS: inventory inherits site and rig context without leaking sibling services');
+console.log('PASS: inventory shows local and linked site trees from every issuing room');
 
 for (const [command, room, expected] of [
-   ['gps', '#site-rig1.rx', ['gps1']], ['gps', '#site', ['gpsSite','gps1','gps10']],
-   ['gps', 'status', ['gpsSite','gps1','gps10','gpsOther']],
-   ['serial', '#site', ['ttyHOST0','ttyOTHER']], ['serial', 'status', ['ttyHOST0','ttyOTHER']]
+   ['gps', '#site-rig1.rx', ['site','gpsSite','rig1','gps1','rig10','gps10','other','gpsOther']], ['gps', '#site', ['site','gpsSite','rig1','gps1','rig10','gps10','other','gpsOther']],
+   ['gps', 'status', ['site','gpsSite','rig1','gps1','rig10','gps10','other','gpsOther']],
+   ['serial', '#site', ['site','ttyHOST0','rig1','rig10','other','ttyOTHER']], ['serial', 'status', ['site','ttyHOST0','rig1','rig10','other','ttyOTHER']]
 ]) {
    ctx.ChatBox.current_room=room;ctx.rrRigCommand([command,'list']);
    const id=sent.at(-1).request.id;displayed.length=0;
@@ -92,7 +92,7 @@ for (const [command, room, expected] of [
       {depth:1,kind:'serial',name:'ttyOTHER',service:'serial'},
       {depth:1,kind:'serial',name:'receiver',service:'gps-in'}
    ]) ctx.rrInventoryMessage({object:{cmd:'inventory-entry'},request:{id},inventory});
-   assert.deepEqual(displayed.map(line=>line.split(' ')[1]),expected);
+   assert.deepEqual(displayed.map(line=>line.trim().split('  ')[0].split(' ').filter(Boolean).at(-1)),expected);
    ctx.rrInventoryMessage({object:{cmd:'inventory-end'},request:{id}});
    assert.equal(displayed.at(-1),'End of '+command+' list ('+expected.length+' entries).');
    assert.equal(destinations.at(-1),room);
