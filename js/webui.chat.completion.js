@@ -106,7 +106,9 @@ function chat_parameter_candidates(beforeCaret) {
    } else if (command === '/link') {
       if (arg === 1) values = ['LIST', 'OPEN', 'CLOSE'];
    } else if (command === '/admin') {
-      if (arg === 1) values = ['USERS', 'ROOMS', 'AUDIT', 'PTT'];
+      if (arg === 1) values = ['USERS', 'ROOMS', 'QUOTAS', 'AUDIT', 'PTT'];
+   } else if (command === '/supervise') {
+      if (arg === 1) values = ['ACCEPT', 'DECLINE'];
    } else if (command === '/quota') {
       const unit = ['TX', 'BW'].includes(first), position = unit ? arg - 1 : arg;
       const action = unit ? (tokens[2] || '').toUpperCase() : first;

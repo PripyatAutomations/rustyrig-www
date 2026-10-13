@@ -22,7 +22,7 @@ vm.createContext(context);
 context.TextEncoder = TextEncoder;
 for (const file of ["webui.wire.registry.js", "webui.wire.js"])
    vm.runInContext(fs.readFileSync("www/js/" + file, "utf8"), context);
-for (const file of ['webui.chat.js', 'webui.rigctl.js'])
+for (const file of ['webui.chat.js', 'webui.admin.js', 'webui.rigctl.js'])
    vm.runInContext(fs.readFileSync('www/js/' + file, 'utf8'), context);
 vm.runInContext('cul_render = function() {};', context);
 context.ptt_btn_init();
@@ -116,3 +116,25 @@ assert.equal(label, 'PTT OFF');
 click();
 assert.equal(sent.length, beforeAck + 1);
 console.log('PASS: persistent TOT warning and acknowledgement consumes click locally');
+
+context.ptt_tot_latched = false;
+context.ptt_active = false;
+context.ptt_pending = false;
+context.ptt_by_vfo = {};
+context.auth_privs = 'noob,chat';
+vm.runInContext('UserCache.clear && UserCache.clear();', context);
+vm.runInContext('UserCache.get_all = () => [];', context);
+context.ptt_button_apply();
+assert.equal(label, 'REQUEST');
+const requestCount = sent.length;
+click();
+assert.equal(sent.length, requestCount + 1);
+assert.equal(sent.at(-1).cat.ptt, true);
+assert.equal(context.ptt_pending, false);
+vm.runInContext('supervisionGrants.add(webui_control_room());', context);
+context.ptt_button_apply();
+assert.equal(label, 'PTT OFF');
+context.supervisionClear();
+context.ptt_button_apply();
+assert.equal(label, 'REQUEST');
+console.log('PASS: actionable REQUEST button, approval and lost-session reset');

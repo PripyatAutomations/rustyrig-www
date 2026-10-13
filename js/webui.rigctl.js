@@ -150,6 +150,10 @@ function ptt_btn_init() {
       const held = typeof UserCache !== 'undefined' && UserCache.get_all().some(user =>
          parse_bool_field(user.ptt) && (!user.ptt_vfo || user.ptt_vfo === vfo));
       const state = held ? false : !Boolean(ptt_by_vfo[vfo]);
+      if (state && typeof supervisionRequired === 'function' && supervisionRequired()) {
+         rrSendMessage(socket, {msg: {type: 'cat'}, cat: {cmd: 'ptt', room: webui_control_room(), vfo, ptt: true}});
+         return;
+      }
       ptt_pending = true;
       ptt_pending_state = state;
       ptt_pending_vfo = vfo;
@@ -196,11 +200,13 @@ function ptt_button_apply() {
       });
    }
 
-   $('.rig-ptt').removeClass('red-btn green-btn yellow-btn tot-btn');
+   $('.rig-ptt').removeClass('red-btn green-btn yellow-btn tot-btn request-btn');
    ptt_set_vfo_locked(ptt_active);
    webui_apply_room_controls(webui_control_room());
    if (ptt_tot_latched) {
       $('.rig-ptt').prop('disabled', false).addClass('tot-btn').text('TOT EXPIRE');
+   } else if (!ptt_active && !other_tx && typeof supervisionRequired === 'function' && supervisionRequired()) {
+      $('.rig-ptt').addClass('request-btn').text('REQUEST');
    } else if (ptt_pending) {
       $('.rig-ptt').addClass('yellow-btn').html('PENDING');
    } else if (other_tx || ptt_active) {
@@ -369,6 +375,7 @@ function webui_parse_cat_msg(msgObj) {
 }
 
 function webui_connection_state_lost() {
+   if (typeof supervisionClear === 'function') supervisionClear();
    ptt_active = false;
    ptt_by_vfo = {};
    ptt_pending = false;

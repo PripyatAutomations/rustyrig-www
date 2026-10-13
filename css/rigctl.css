@@ -269,3 +269,9 @@ div#rig-right div.chat-user-list {
    background-color: #dcdcdc;
    height: CALC(100% - 5em);
 }
+
+/* PARITY: GTK ptt-offline styling for an actionable supervision request. */
+button.rig-ptt.request-btn {
+   background: #777;
+   color: #fff;
+}

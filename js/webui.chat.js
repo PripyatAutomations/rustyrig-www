@@ -307,10 +307,12 @@ const webui_command_help = [
       "admin": true
    },
    {
+      "cmd": "supervise", "help_section": "Radio", "desc": "ACCEPT|DECLINE <request-id> <rig-room>; accepting assumes control-operator responsibility", "admin": false
+   }, {
       "cmd": "link", "help_section": "Administration", "desc": "LIST | OPEN <stored-peer> | CLOSE <stored-peer>", "admin": true
    },
    {
-      "cmd": "admin", "help_section": "Administration", "desc": "USERS | ROOMS | AUDIT | PTT [before-id]", "admin": true
+      "cmd": "admin", "help_section": "Administration", "desc": "USERS | ROOMS | QUOTAS | AUDIT | PTT [before-id]", "admin": true
    },
    {
       "cmd": "user",
@@ -1065,6 +1067,13 @@ function parse_chat_cmd(e) {
                }
                break;
 
+            case 'supervise':
+               if (args.length !== 4) {
+                  ChatBox.Append($('<div class="error"></div>').text('Usage: /supervise accept|decline <request-id> <rig-room>. Accepting assumes responsibility as control operator.'));
+                  return;
+               }
+               args_obj = {data: args.slice(1, 3).join(' '), room: args[3]};
+               break;
             case 'link':
             case 'admin':
             case 'user':
@@ -1301,6 +1310,10 @@ function handle_paste(e) {
 /////////////////////////////////
 function webui_parse_chat_msg(msgObj) {
    var cmd = msgObj.talk.cmd;
+   if (cmd === "supervise") {
+      if (typeof supervisionResult === "function") supervisionResult(msgObj);
+      return;
+   }
    if (cmd === "admin") {
       if (typeof adminResult === "function") adminResult(msgObj);
       return;
