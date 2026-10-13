@@ -251,8 +251,17 @@ function webui_parse_media_msg(msgObj) {
             const url = new URL(socket.url);
             endpoint = ' at ' + url.hostname + ':' + (url.port || (url.protocol === 'wss:' ? '443' : '80'));
          } catch (_) {}
-         if (typeof ChatBox !== 'undefined' && ChatBox.Append)
-            mediaCommandNotice('Media ' + (mediaChannels[u].name || u) + ': connected via proxy WebSocket' + endpoint);
+         if (typeof ChatBox !== 'undefined' && ChatBox.Append) {
+            const channel = mediaChannels[u];
+            const cached = typeof rrObjectCache !== 'undefined' ? rrObjectCache.objects : null;
+            const rig = cached?.get(channel.rigUuid)?.descriptor;
+            const station = rig ? cached?.get(rig.owner)?.descriptor : null;
+            const vfo = Number.isInteger(channel.vfo) && channel.vfo >= 0 && channel.vfo < 26 ? String.fromCharCode(65 + channel.vfo) : 'shared';
+            mediaCommandNotice('Media ' + (channel.name || u) + ' [station=' + (station?.alias || 'unknown') +
+               ' rig=' + (rig?.alias || (Number.isInteger(channel.rig) && channel.rig !== 255 ? 'rig' + channel.rig : 'unknown')) +
+               ' VFO=' + vfo + ' ' + (channel.dir === 1 ? 'TX' : channel.dir === 0 ? 'RX' : 'unknown') +
+               ' codec=' + (channel.codec || 'unknown') + ']: connected via proxy WebSocket' + endpoint);
+         }
       }
       console.log("Subscribed to media channel", u, "stream", m.stream);
       return true;

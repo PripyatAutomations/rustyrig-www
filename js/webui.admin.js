@@ -1,8 +1,9 @@
+// PARITY: rustyrig-fw/rrclient/gtk/gtk.admin.c quota fields and action prompts.
 // PARITY: rrserver/events.c admin_send and rrclient/gtk/gtk.admin.c.
 const adminTables = {
    users: ['name', 'enabled', 'permissions', 'email', 'maxsessions', 'password_set', 'password_expires', 'password_change_required', 'uid'],
    rooms: ['name', 'deleted', 'topic', 'has_vfos', 'vfo_mask'],
-   quotas: ['name', 'tx_remaining', 'tx_used', 'bandwidth_remaining', 'bandwidth_used'],
+   quotas: ['name', 'tx_remaining', 'tx_used', 'bandwidth_remaining', 'bandwidth_tx_used', 'bandwidth_rx_used'],
    audit: ['id', 'timestamp', 'username', 'event_type', 'details'],
    ptt: ['id', 'start_time', 'username', 'vfo', 'frequency', 'mode', 'duration', 'stop_reason', 'recording_id']
 };
@@ -84,7 +85,7 @@ function adminResult(message) {
             button.onclick = () => {
                if (action === 'Edit') return adminEdit(table, row);
                if (table === 'quotas') {
-                  const amount = window.prompt(action + ' for ' + row.name + ' (TX: 30m; BW: 10M; SET 0 exhausts allowance)');
+                  const amount = window.prompt(action + ' for ' + row.name + ' (TX: 30m; BW: 10M' + (action.endsWith('SET') ? '; SET 0 exhausts allowance' : '') + ')');
                   if (amount === null) return;
                   chat_send_command('quota', {data: action + ' ' + row.name + ' ' + amount});
                   return adminRequest(table);
@@ -114,7 +115,7 @@ window.webui_inits.push(function() {
    Object.entries(adminTables).forEach(([name, fields]) => {
       const section = document.createElement('section');
       const heading = document.createElement('h3');
-      heading.textContent = name === 'audit' ? 'Audit Log' : name === 'ptt' ? 'PTT Log' : name;
+      heading.textContent = name === 'audit' ? 'Audit Log' : name === 'ptt' ? 'PTT Log' : name === 'users' ? 'Users' : name === 'rooms' ? 'Rooms' : 'Quotas';
       section.appendChild(heading);
       const refresh = document.createElement('button');
       refresh.textContent = 'Refresh';
