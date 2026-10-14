@@ -257,8 +257,12 @@ function webui_parse_media_msg(msgObj) {
             const rig = cached?.get(channel.rigUuid)?.descriptor;
             const station = rig ? cached?.get(rig.owner)?.descriptor : null;
             const vfo = Number.isInteger(channel.vfo) && channel.vfo >= 0 && channel.vfo < 26 ? String.fromCharCode(65 + channel.vfo) : 'shared';
-            const path = (station?.alias || 'unknown') + '.' + (rig?.alias || 'rig' + channel.rig) +
-               (vfo === 'shared' ? '' : '.vfo-' + vfo.toLowerCase()) + '.' + (channel.dir === 1 ? 'tx' : 'rx');
+            // PARITY: rrclient/media.c media_description. Use catalog names for GPS/NMEA too.
+            const room = channel.controlRoom || channel.room || '';
+            const stationName = station?.alias || (room.startsWith('#') ? room.slice(1).split('-rig')[0] : 'unknown');
+            const endpointName = channel.name || ('rig' + channel.rig +
+               (vfo === 'shared' ? '' : '.vfo-' + vfo.toLowerCase()) + '.' + (channel.dir === 1 ? 'tx' : 'rx'));
+            const path = stationName + '.' + endpointName.replace('.vfo_', '.vfo-');
             mediaCommandNotice('Media ' + path + ' (codec=' + (channel.codec || 'unknown') +
                '): connected via proxy WebSocket' + endpoint);
          }

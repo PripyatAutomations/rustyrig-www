@@ -88,3 +88,10 @@ announce('notice-rx', '#shared', true);
 ctx.webui_parse_media_msg({media: {cmd: 'subscribed', 'chan-uuid': 'notice-rx', stream: 7}});
 assert.match(transportNotices.at(-1)[0], /connected via proxy WebSocket at 127\.0\.0\.1:8420/);
 console.log('PASS: browser confirmed media transport notices include proxy type and endpoint');
+
+ctx.webui_parse_media_msg({media: {cmd: 'available', 'chan-uuid': 'gps-notice',
+   subsys: 4, dir: 0, vfo: 255, rig: 255, room: '#rplywv00', joined: true,
+   name: 'station.gps.rx', codec: 'gpsp'}});
+ctx.webui_parse_media_msg({media: {cmd: 'subscribed', 'chan-uuid': 'gps-notice', stream: 8}});
+assert.match(transportNotices.at(-1)[0], /rplywv00\.station\.gps\.rx \(codec=gpsp\)/);
+console.log('PASS: browser transport captions preserve named GPS endpoints before object discovery');

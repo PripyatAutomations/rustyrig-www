@@ -115,6 +115,8 @@ async function authenticate(login_user, login_pass, auth_token, nonce) {
       "auth": {
          "cmd": "pass",
          "user": login_user,
+         // PARITY: librrprotocol/ws.auth.c ws_send_passwd.
+         "token": auth_token,
          "pass": hashed_pass
       }
    };
@@ -238,7 +240,6 @@ function webui_parse_auth_msg(msgObj) {
          }
 
          var login_pass = $('input#pass').val();
-         var hashed_pass = sha1_hex(login_pass);
 
          // here we use an async call to crypto.simple
          authenticate(login_user, login_pass, auth_token, nonce).then(msgObj => {
