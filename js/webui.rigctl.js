@@ -192,12 +192,34 @@ function ptt_btn_init() {
    });
 }
 
+// PARITY: rrclient/gtk/gtk.ptt-btn.c ptt_sync_context().
+var ptt_display_room, ptt_display_vfo;
+function ptt_talker_in_context(user) {
+   const room = webui_control_room();
+   return parse_bool_field(user.ptt) &&
+      (!user.ptt_room || String(user.ptt_room).toLowerCase() === String(room).toLowerCase()) &&
+      (!user.ptt_vfo || String(user.ptt_vfo).toUpperCase() === String(active_vfo || 'A').toUpperCase());
+}
+function ptt_sync_context() {
+   const room = webui_control_room(), vfo = String(active_vfo || 'A').toUpperCase();
+   if (ptt_display_room === room && ptt_display_vfo === vfo) return;
+   ptt_display_room = room; ptt_display_vfo = vfo;
+   ptt_pending = false;
+   if (ptt_pending_timer) clearTimeout(ptt_pending_timer);
+   ptt_pending_timer = null;
+   ptt_by_vfo = {};
+   ptt_active = typeof UserCache !== 'undefined' && UserCache.get_all().some(user =>
+      ptt_talker_in_context(user) && ptt_user_is_local(user.name));
+   ptt_by_vfo[vfo] = ptt_active;
+}
+
 function ptt_button_apply() {
+   ptt_sync_context();
    var other_tx = false;
    var tx_user = '';
    if (typeof UserCache !== 'undefined' && typeof UserCache.get_all === 'function') {
       UserCache.get_all().forEach(function(user) {
-         if (parse_bool_field(user.ptt)) {
+         if (ptt_talker_in_context(user)) {
             other_tx = true;
             if (!tx_user) tx_user = user.name || '';
          }
@@ -235,7 +257,9 @@ function ptt_user_is_local(user) {
 
 // PARITY: rrclient/events.c rrclient_confirm_ptt() and gtk.ptt-btn.c.
 function ptt_confirm_state(user, vfo, state, room) {
+   ptt_sync_context();
    if (!ptt_user_is_local(user)) return;
+   if (room && String(room).toLowerCase() !== String(webui_control_room()).toLowerCase()) return;
    if (room && ptt_pending && ptt_pending_room && room !== ptt_pending_room) return;
    vfo = String(vfo || active_vfo || 'A').toUpperCase();
    if (vfo === String(active_vfo || 'A').toUpperCase()) {
@@ -279,6 +303,10 @@ function ptt_tot_expired(msgObj) {
 }
 
 function webui_parse_cat_msg(msgObj) {
+   const updateRoom = msgObj.cat.room;
+   if (updateRoom && String(updateRoom).toLowerCase() !== String(webui_control_room()).toLowerCase() &&
+       !(typeof mediaSameRig === 'function' && (mediaSameRig(updateRoom, webui_control_room()) ||
+          mediaSameRig(webui_control_room(), updateRoom)))) return;
    // Untagged CAT polls describe only the default rig.
    if (typeof mediaChannels !== 'undefined' && typeof mediaRoom !== 'undefined') {
       const selected = Object.values(mediaChannels).find(channel => channel.dir === 0 && mediaRoomMatches(channel));
