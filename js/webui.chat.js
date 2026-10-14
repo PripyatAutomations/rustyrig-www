@@ -445,6 +445,8 @@ class WebUiChat {
       this.output = $(this.output_selector);
       if (typeof mediaSelectRoom === 'function') mediaSelectRoom(room);
       if (typeof webui_apply_room_controls === 'function') webui_apply_room_controls(room);
+      if (typeof ptt_button_apply === 'function') ptt_button_apply();
+      if (typeof UserCache !== 'undefined') cul_render();
       this.output.html(this.rooms[room] || '');
       $('#chat-room-tabs button').each(function() {
          $(this).toggleClass('active', $(this).attr('data-room') === room);
@@ -603,6 +605,10 @@ function parse_userinfo_reply(message) {
 // Re-render the #chat-user-list from UserCache contents
 function cul_render() {
     $('.cul-list').empty();
+    if (typeof webui_room_controls !== 'undefined' && webui_room_controls[ChatBox.current_room]?.offline) {
+       $('.cul-list').text('OFFLINE');
+       return;
+    }
     const users = UserCache.get_all();
 
     // Only show each user once in the list
@@ -807,6 +813,11 @@ var unmute_vol = $('#rig-rx-vol').val();
 
 function parse_chat_cmd(e) {
    var message = $('#chat-input').val().trim();
+   if (message && message[0] !== '/' && typeof webui_room_controls !== 'undefined' &&
+       webui_room_controls[ChatBox.current_room]?.offline) {
+      ChatBox.Append('<div class="notice">Room is OFFLINE; draft retained.</div>', ChatBox.current_room);
+      return;
+   }
    var chat_msg = false;
    var msg_type = "invalid";
    var private_target = null;
@@ -1328,12 +1339,29 @@ function webui_parse_chat_msg(msgObj) {
       msgObj.talk.from !== auth_user ? msgObj.talk.from : rawTarget;
    var append = function(html) { ChatBox.Append(html, targetRoom); };
 
+   if (cmd === 'room-state' && targetRoom) {
+      const policy = webui_room_controls[targetRoom] || (webui_room_controls[targetRoom] = {});
+      policy.offline = !parse_bool_field(msgObj.talk.connected);
+      if (policy.offline) {
+         for (const [name, user] of Object.entries(UserCache.users)) {
+            if (user.room === targetRoom) delete UserCache.users[name];
+         }
+         policy.joined = false;
+         if (typeof mediaPartRoom === 'function') mediaPartRoom(targetRoom);
+      }
+      if (ChatBox.current_room === targetRoom) {
+         cul_render();
+         if (typeof ptt_button_apply === 'function') ptt_button_apply();
+      }
+      append('<div class="notice">Room ' + (policy.offline ? 'OFFLINE; draft retained until its owner returns.' : 'ONLINE') + '</div>');
+      return;
+   }
    /* PARITY: rustyrig-fw/rrclient/events.c:rrclient_handle_talk_msg
     * The server now tags join/chat events with their room.  Keep a small
     * client-side room model so side-room traffic and private targets do not
     * collapse into the rig conversation. */
    if (cmd === 'join' && msgObj.talk.user === auth_user && targetRoom &&
-       typeof webui_room_controls !== 'undefined' && webui_room_controls[targetRoom]?.joined) {
+       typeof webui_room_controls !== 'undefined' && webui_room_controls[targetRoom]?.joined && !webui_room_controls[targetRoom]?.offline) {
       return;
    }
 
@@ -1353,6 +1381,11 @@ function webui_parse_chat_msg(msgObj) {
       };
       if (typeof ChatBox !== 'undefined' && ChatBox.current_room === targetRoom)
          webui_apply_room_controls(targetRoom);
+   }
+   if (cmd === 'join' && msgObj.talk.user === auth_user && targetRoom) {
+      const policy = webui_room_controls[targetRoom] || (webui_room_controls[targetRoom] = {});
+      policy.offline = false;
+      policy.joined = true;
    }
    if (cmd === 'join' && msgObj.talk.user === auth_user && targetRoom) {
       if (msgObj.room && msgObj.room.site) webui_authoritative_room = targetRoom;

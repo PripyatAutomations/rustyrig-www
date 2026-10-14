@@ -96,6 +96,10 @@ function webui_control_room() {
 }
 function webui_apply_room_controls(room) {
    const policy = webui_room_controls[room] || {};
+   if (policy.offline) {
+      $('.rig-ptt, #rig-mode, #rig-width, #rig-power, #rig-apply, #edit-vfo-freq input, #rig-freq').prop('disabled', true);
+      return;
+   }
    const held = typeof UserCache !== 'undefined' && UserCache.get_all().some(user =>
       parse_bool_field(user.ptt) && (!user.ptt_vfo || user.ptt_vfo === (active_vfo || 'A')));
    // Keep safety STOP available; current account authority is enforced server-side.
@@ -203,7 +207,9 @@ function ptt_button_apply() {
    $('.rig-ptt').removeClass('red-btn green-btn yellow-btn tot-btn request-btn');
    ptt_set_vfo_locked(ptt_active);
    webui_apply_room_controls(webui_control_room());
-   if (ptt_tot_latched) {
+   if (webui_room_controls[webui_control_room()]?.offline) {
+      $('.rig-ptt').prop('disabled', true).addClass('request-btn').text('OFFLINE');
+   } else if (ptt_tot_latched) {
       $('.rig-ptt').prop('disabled', false).addClass('tot-btn').text('TOT EXPIRE');
    } else if (!ptt_active && !other_tx && typeof supervisionRequired === 'function' && supervisionRequired()) {
       $('.rig-ptt').addClass('request-btn').text('REQUEST');

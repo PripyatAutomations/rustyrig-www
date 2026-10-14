@@ -257,10 +257,10 @@ function webui_parse_media_msg(msgObj) {
             const rig = cached?.get(channel.rigUuid)?.descriptor;
             const station = rig ? cached?.get(rig.owner)?.descriptor : null;
             const vfo = Number.isInteger(channel.vfo) && channel.vfo >= 0 && channel.vfo < 26 ? String.fromCharCode(65 + channel.vfo) : 'shared';
-            mediaCommandNotice('Media ' + (channel.name || u) + ' [station=' + (station?.alias || 'unknown') +
-               ' rig=' + (rig?.alias || (Number.isInteger(channel.rig) && channel.rig !== 255 ? 'rig' + channel.rig : 'unknown')) +
-               ' VFO=' + vfo + ' ' + (channel.dir === 1 ? 'TX' : channel.dir === 0 ? 'RX' : 'unknown') +
-               ' codec=' + (channel.codec || 'unknown') + ']: connected via proxy WebSocket' + endpoint);
+            const path = (station?.alias || 'unknown') + '.' + (rig?.alias || 'rig' + channel.rig) +
+               (vfo === 'shared' ? '' : '.vfo-' + vfo.toLowerCase()) + '.' + (channel.dir === 1 ? 'tx' : 'rx');
+            mediaCommandNotice('Media ' + path + ' (codec=' + (channel.codec || 'unknown') +
+               '): connected via proxy WebSocket' + endpoint);
          }
       }
       console.log("Subscribed to media channel", u, "stream", m.stream);

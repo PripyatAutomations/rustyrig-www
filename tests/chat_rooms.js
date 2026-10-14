@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const buttons = [];
-const boxes = {'#chat-box': {html: '', scrollHeight: 0}, '#chat-input': {html: '', scrollHeight: 0}};
+const boxes = {'#chat-box': {html: '', scrollHeight: 0}, '#chat-input': {html: '', scrollHeight: 0}, '.cul-list': {html: '', scrollHeight: 0}};
 const box = boxes['#chat-box'];
 const tabStrip = {append(button) { buttons.push(button); }};
 function collection(selector) {
@@ -18,6 +18,7 @@ function collection(selector) {
          },
          append(value) { element.html += value; return this; },
          empty() { element.html = ''; return this; },
+         text(value) { element.html = value; return this; },
          on(name, selector, callback) { element.handlers = element.handlers || {}; element.handlers[name] = callback; return this; },
          scrollTop() { return this; },
          children() { return {length: 0, slice() { return {remove() {}}; }}; },
@@ -34,6 +35,7 @@ function collection(selector) {
    if (selector === '#chat-room-tabs') return tabStrip;
    if (selector === '#chat-box') return collection(boxes['#chat-box']);
    if (typeof selector === 'string' && boxes[selector]) return collection(boxes[selector]);
+   if (selector === '#bell-btn') return {data() { return false; }};
    if (selector === '#rig-rx-vol') return {val() { return 1; }};
    if (typeof selector === 'string' && selector.startsWith('<button')) {
       const attrs = {};
@@ -136,3 +138,24 @@ box.handlers.click(click);
 assert.equal(sent.length, 2);
 assert.equal(sent[1].message.talk.target, '#clicked-room');
 console.log('PASS: delegated room clicks retain selection and activate unselected links');
+
+context.webui_room_controls = {'#rig': {joined: true, tx: true}};
+context.UserCache = {add() {}, get_all() { return []; }};
+context.auth_user = 'alice';
+context.parse_bool_field = value => value === true;
+context.msg_timestamp = () => '';
+context.cul_render = () => { boxes['.cul-list'].html = context.webui_room_controls[chat.current_room]?.offline ? 'OFFLINE' : ''; };
+context.ChatBox = chat;
+chat.SwitchRoom('#rig');
+context.webui_parse_chat_msg({talk: {cmd: 'room-state', room: '#rig', connected: false}});
+assert.equal(context.webui_room_controls['#rig'].offline, true);
+assert.equal(boxes['.cul-list'].html, 'OFFLINE');
+boxes['#chat-input'].html = 'retain this draft';
+const beforeSend = sent.length;
+context.parse_chat_cmd();
+assert.equal(boxes['#chat-input'].html, 'retain this draft');
+assert.equal(sent.length, beforeSend);
+context.webui_parse_chat_msg({msg: {ts: 1}, talk: {cmd: 'join', room: '#rig', user: 'alice'}});
+assert.equal(context.webui_room_controls['#rig'].offline, false);
+assert.equal(boxes['#chat-input'].html, 'retain this draft');
+console.log('PASS: linked-room loss keeps tabs and unsent drafts, and restored join thaws the room');
