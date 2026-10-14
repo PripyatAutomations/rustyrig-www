@@ -25,16 +25,18 @@ announce('rig0-rx', '#rig0', true);
 assert.equal(sent.length, 1); // repeated metadata must not resubscribe
 ctx.mediaJoinRoom('#rig1');
 announce('rig1-rx', '#rig1', true, 1);
-assert.equal(ctx.mediaChannels['rig0-rx'].subscribed, false);
+assert.equal(ctx.mediaChannels['rig0-rx'].subscribed, true);
 assert.equal(ctx.mediaChannels['rig1-rx'].subscribed, true);
 ctx.webui_parse_media_msg({media: {cmd: 'subscribed', 'chan-uuid': 'rig0-rx', stream: 1}});
-assert.equal(ctx.mediaChannels['rig0-rx'].subscribed, false);
+assert.equal(ctx.mediaChannels['rig0-rx'].subscribed, true);
 ctx.mediaPartRoom('#rig1');
 assert.equal(ctx.mediaChannels['rig1-rx'].subscribed, false);
 ctx.webui_parse_media_msg({media: {cmd: 'subscribed', 'chan-uuid': 'rig1-rx', stream: 2}});
 assert.equal(ctx.mediaChannels['rig1-rx'].subscribed, false); // stale acknowledgement
+const beforeReturn = sent.length;
 ctx.mediaSelectRoom('#rig0');
 assert.equal(ctx.mediaChannels['rig0-rx'].subscribed, true);
+assert.equal(sent.length, beforeReturn, 'returning to a rig tab does not renegotiate media');
 console.log('PASS: browser lobby, joined rig rooms, switching, PART, and stale acknowledgements');
 ctx.webui_room_controls = {
    '#site-rig0': {joined: true, vfoMask: 3, tx: true},
@@ -72,7 +74,7 @@ ctx.mediaSelectRoom('#site-rig0.monitor');
 assert.equal(ctx.mediaChannels['shared-rx'].subscribed, true);
 ctx.webui_room_controls['#rig1'] = {joined: true, vfoMask: 1};
 ctx.mediaSelectRoom('#rig1');
-assert.equal(ctx.mediaChannels['shared-rx'].subscribed, false);
+assert.equal(ctx.mediaChannels['shared-rx'].subscribed, true);
 console.log('PASS: shared rig audio survives A/B selection and respects rig/subroom membership');
 
 ctx.subscribeMediaChannel('rig0-rx', false, 'ws');

@@ -51,8 +51,80 @@ const txGainNode = txCtx.createGain();
 txGainNode.gain.value = $('#rig-tx-vol').val();
 txGainNode.connect(txCtx.destination);
 
+// One decoder and gain per channel: tab selection never resets a codec stream.
+const rxChannelRoutes = new Map();
+function webui_rx_route_audible(channel) {
+   // PARITY: rrclient/audio.c client_channel_pcm.
+   return channel && channel.subscribed && !channel.disabled && mediaRoomMatches(channel) &&
+      (channel.vfo === 0xFF || channel.vfo === vfoLetterToId(activeVfoId()));
+}
+function webui_reset_rx_route(uuid) {
+   const route = rxChannelRoutes.get(uuid);
+   if (!route) return;
+   route.discardBefore = route.timestamp;
+   route.time = rxCtx.currentTime;
+   for (const source of rxPlaybackNodes) if (source.rxRoute === route) {
+      source.stop(); source.disconnect(); rxPlaybackNodes.delete(source);
+   }
+}
+function webui_sync_rx_routes() {
+   for (const [uuid, route] of rxChannelRoutes) {
+      const channel = mediaChannels[uuid];
+      if (!channel || !channel.subscribed || channel.disabled ||
+          (channel.room && !channel.joined) || channel.codec !== route.codec) {
+         webui_reset_rx_route(uuid);
+         if (route.decoder) route.decoder.close();
+         route.closed = true;
+         route.gain.disconnect();
+         rxChannelRoutes.delete(uuid);
+      } else route.gain.gain.value = webui_rx_route_audible(channel) ? 1 : 0;
+   }
+}
+function webui_play_channel_packet(buffer, codec, channel) {
+   if (!channel.subscribed || channel.disabled || (channel.room && !channel.joined)) return;
+   webui_sync_rx_routes();
+   let route = rxChannelRoutes.get(channel.uuid);
+   if (!route) {
+      route = {codec, gain: rxCtx.createGain(), time: rxCtx.currentTime, timestamp: 0, discardBefore: 0};
+      route.gain.gain.value = webui_rx_route_audible(channel) ? 1 : 0;
+      route.gain.connect(rxGainNode);
+      rxChannelRoutes.set(channel.uuid, route);
+   }
+   const formats = {g722: 'g722', opus: 'opus', aacv: 'mp4a.40.2'};
+   if (formats[codec]) {
+      if (typeof AudioDecoder === 'undefined' || typeof EncodedAudioChunk === 'undefined') return;
+      if (!route.decoder) {
+         route.decoder = new AudioDecoder({
+            output(audio) {
+               try {
+                  if (route.closed || audio.timestamp < route.discardBefore || route.timestamp - audio.timestamp > 250000) return;
+                  const samples = new Float32Array(audio.numberOfFrames);
+                  audio.copyTo(samples, {planeIndex: 0, format: 'f32-planar'});
+                  playFloat32Samples(samples, audio.sampleRate || 16000, route);
+               } finally { audio.close(); }
+            },
+            error(error) { console.warn('RX channel decoder failed', channel.uuid, error); route.decoder = null; }
+         });
+         route.decoder.configure({codec: formats[codec], sampleRate: 16000, numberOfChannels: 1});
+      }
+      if (route.decoder.decodeQueueSize < 8) route.decoder.decode(new EncodedAudioChunk({
+         type: 'key', timestamp: route.timestamp, data: new Uint8Array(buffer)
+      }));
+      route.timestamp += codec === 'g722' ? Math.floor(buffer.byteLength * 2 * 1000000 / 16000) : codec === 'opus' ? 20000 : 64000;
+      return;
+   }
+   const rates = {mu08: 8000, mu16: 16000, pc16: 16000, pc44: 44100};
+   if (!rates[codec]) return;
+   const samples = codec.startsWith('mu') ? decodeMulawToFloat32(buffer) : decodePCM16ToFloat32(buffer);
+   playFloat32Samples(samples, rates[codec], route);
+}
+
 // Halt playback
 function stopPlayback() {
+   for (const route of rxChannelRoutes.values()) {
+      route.discardBefore = route.timestamp;
+      route.time = rxCtx.currentTime;
+   }
    // Invalidate queued decoder output as well as already scheduled sources.
    audioDecodeDiscardBefore['G.722'] = audio_g722_timestamp;
    audioDecodeDiscardBefore.Opus = audio_opus_timestamp;
@@ -229,7 +301,12 @@ function mulawDecode8(u_val) {
    return (u_val & 0x80) ? -t : t;
 }
 
-function playAudioPacket(buffer, codec = 'mu16') {
+function playAudioPacket(buffer, codec = 'mu16', channel = null) {
+   if (channel) {
+      try { webui_play_channel_packet(buffer, codec, channel); }
+      catch (error) { console.warn('Unable to decode RX channel', channel.uuid, error); }
+      return;
+   }
    let float32Data;
    let sampleRate;
 
@@ -367,33 +444,40 @@ function decodePCM16ToFloat32(buffer) {
    return float32Data;
 }
 
-function playFloat32Samples(float32Data, sampleRate) {
+function playFloat32Samples(float32Data, sampleRate, route = null) {
    const samplesPerPacket = float32Data.length;
    const duration = samplesPerPacket / sampleRate;
    if (typeof socket !== 'undefined' && socket && socket.readyState !== 1) return;
    if (!Number.isFinite(duration) || duration <= 0 || duration > 0.25) return;
    // Replace stale scheduled audio rather than accumulating a delayed station.
-   if (rxTime - rxCtx.currentTime > 0.25) stopPlayback();
+   if ((route ? route.time : rxTime) - rxCtx.currentTime > 0.25) {
+      if (route) {
+         for (const source of rxPlaybackNodes) if (source.rxRoute === route) {
+            source.stop(); source.disconnect(); rxPlaybackNodes.delete(source);
+         }
+         route.time = rxCtx.currentTime;
+      } else stopPlayback();
+   }
 
    const audioBuffer = rxCtx.createBuffer(1, samplesPerPacket, sampleRate);
    audioBuffer.copyToChannel(float32Data, 0);
 
    const source = rxCtx.createBufferSource();
    source.buffer = audioBuffer;
-   source.connect(rxGainNode);
+   source.rxRoute = route;
+   source.connect(route ? route.gain : rxGainNode);
 
    const rxNow = rxCtx.currentTime;
    // Keep a modest queue ahead of the hardware clock.  Starting exactly at
    // `currentTime` makes normal WebSocket jitter audible as periodic gaps.
    const rxLead = 0.075;
-   if (rxTime < rxNow + rxLead) {
-      rxTime = rxNow + rxLead;
-   }
+   let scheduled = Math.max(route ? route.time : rxTime, rxNow + rxLead);
 
    rxPlaybackNodes.add(source);
    source.onended = () => { rxPlaybackNodes.delete(source); source.disconnect(); };
-   source.start(rxTime);
-   rxTime += duration;
+   source.start(scheduled);
+   if (route) route.time = scheduled + duration;
+   else rxTime = scheduled + duration;
 }
 
 function ws_send_capab_msg() {
@@ -572,6 +656,7 @@ function ws_send_codec_for_direction(codec, direction, onlyUuid) {
          }
       });
    }
+   if (typeof webui_sync_rx_routes === 'function') webui_sync_rx_routes();
    // There may be no matching channel yet during authentication.  The
    // subscribed callback will retry the selection once the UUID is known.
 }

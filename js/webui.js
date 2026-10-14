@@ -186,7 +186,9 @@ function handle_binary_frame(event) {
    // Copy payload out of the ws buffer so audio code owns it
    var payload = f.payload.buffer.slice(f.payload.byteOffset,
                                         f.payload.byteOffset + f.payload.byteLength);
-   playAudioPacket(payload, f.codec);
+   const channel = Object.values(mediaChannels).find(channel => channel.subscribed && channel.dir === 0 &&
+      channel.subsystem === 1 && channel.stream === f.stream && channel.codec === f.codec);
+   if (channel) playAudioPacket(payload, f.codec, channel);
 }
 
 function webui_handle_ws_msg(event) {

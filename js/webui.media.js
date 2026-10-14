@@ -166,9 +166,9 @@ function mediaApplyConfirmedCodec(entry) {
    }
 }
 
-// Keep the automatic audio pair aligned with the VFO shown by the UI. An
-// explicitly selected non-active channel remains untouched; only channels
-// that were auto-subscribed for another VFO are released here.
+// PARITY: rrclient/media.c rrclient_handle_media_vfo.
+// Keep subscriptions alive across tab/VFO selection; mute inactive RX locally.
+// Leaving a room still releases its automatic subscriptions.
 function mediaSyncActiveVfo() {
    if (!mediaReady) return;
    var active = vfoLetterToId(activeVfoId());
@@ -177,11 +177,12 @@ function mediaSyncActiveVfo() {
       if (!entry || entry.subsystem !== 0x01) return;
       if ((entry.vfo === active || entry.vfo === 0xFF) && mediaRoomMatches(entry)) {
          mediaTryAutosubscribe(entry);
-      } else if (entry.auto && entry.subscribed && !entry.disabled) {
+      } else if (entry.auto && entry.subscribed && !entry.disabled && entry.room && !entry.joined) {
          entry.subscribed = false;
          unsubscribeMediaChannel(uuid);
       }
    });
+   if (typeof webui_sync_rx_routes === 'function') webui_sync_rx_routes();
 }
 
 // Called from webui.js handle_text_frame for msgObj.media with
@@ -223,18 +224,19 @@ function webui_parse_media_msg(msgObj) {
          console.log("Media channel available:", uuid, mediaChannels[uuid]);
          mediaApplyConfirmedCodec(entry);
          mediaTryAutosubscribe(mediaChannels[uuid]);
+         if (typeof webui_sync_rx_routes === 'function') webui_sync_rx_routes();
       }
       return true;
    } else if (m.cmd === "unsubscribed") {
       var entry = mediaChannels[m["chan-uuid"]];
       if (entry) { entry.subscribed = false; delete entry.stream; }
+      if (typeof webui_sync_rx_routes === 'function') webui_sync_rx_routes();
       return true;
    } else if (m.cmd === "subscribed") {
       var u = m["chan-uuid"];
 
       if (u && mediaChannels[u]) {
-         if (mediaChannels[u].disabled || (mediaChannels[u].room && !mediaChannels[u].joined) ||
-             (mediaChannels[u].auto && !mediaRoomMatches(mediaChannels[u]))) {
+         if (mediaChannels[u].disabled || (mediaChannels[u].room && !mediaChannels[u].joined)) {
             unsubscribeMediaChannel(u);
             return true;
          }
@@ -283,6 +285,7 @@ window.webui_inits.push(function webui_media_init() {
       var prev = on_socket_open;
       on_socket_open = function() {
          mediaChannels = {};
+         if (typeof webui_sync_rx_routes === 'function') webui_sync_rx_routes();
          mediaRoom = "";
          if (typeof audio_direction_disabled !== "undefined") {
             audio_direction_disabled = [false, false];

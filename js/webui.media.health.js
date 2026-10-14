@@ -56,11 +56,16 @@ function webui_observe_audio(frame) {
    if (!frame.stream || frame.dir !== 0 || !window.socket) return false;
    if (typeof mediaChannels !== 'undefined' && !Object.values(mediaChannels).some(channel =>
       channel.stream === frame.stream && channel.codec === frame.codec && channel.subscribed &&
-      channel.subsystem === 1 && channel.dir === 0 && mediaRoomMatches(channel))) return false;
+      channel.subsystem === 1 && channel.dir === 0 && !channel.disabled && (!channel.room || channel.joined))) return false;
    const state = socket.rrMediaHealth || (socket.rrMediaHealth = {});
    const observed = rrMediaObserve(state, frame, Math.floor(performance.now() * 1000));
    if (!observed.accept) return false;
-   if (observed.discontinuity) stopPlayback();
+   if (observed.discontinuity) {
+      const channel = typeof mediaChannels !== 'undefined' && Object.values(mediaChannels).find(channel =>
+         channel.stream === frame.stream && channel.subsystem === 1 && channel.dir === 0);
+      if (channel && typeof webui_reset_rx_route === 'function') webui_reset_rx_route(channel.uuid);
+      else stopPlayback();
+   }
    if (observed.feedback) rrSendMessage(socket, observed.feedback);
    return true;
 }
