@@ -223,6 +223,12 @@ const webui_command_help = [
       "admin": false
    },
    {
+      "cmd": "rxroute",
+      "help_section": "Media",
+      "desc": "Route room RX audio: L | R | S (both ears) | M",
+      "admin": false
+   },
+   {
       "cmd": "rxvol",
       "help_section": "Media",
       "desc": "Set receive volume level",
@@ -425,7 +431,15 @@ class WebUiChat {
          const tab = $('<button type="button"></button>')
             .text(room).attr('data-room', room);
          tab.on('click', () => this.SwitchRoom(room));
-         $('#chat-room-tabs').append(tab);
+         if (typeof webui_room_audio_route === 'function') {
+            const output = $('<select aria-label="RX audio output"></select>')
+               .attr('data-audio-room', room).attr('title', 'Left / Right / Stereo (both ears) / Muted');
+            ['L', 'R', 'S', 'M'].forEach(value => output.append($('<option></option>').val(value).text(value)));
+            output.val(webui_room_audio_route(room));
+            output.on('change', () => webui_set_room_audio_route(room, output.val()));
+            const group = $('<span class="chat-room-tab"></span>').append(tab, output);
+            $('#chat-room-tabs').append(group);
+         } else $('#chat-room-tabs').append(tab);
       }
       if (select) {
          this.SwitchRoom(room);
@@ -468,9 +482,11 @@ class WebUiChat {
    RemoveRoom(room) {
       if (!room || !Object.prototype.hasOwnProperty.call(this.rooms, room)) return;
       delete this.rooms[room];
-      $('#chat-room-tabs button').filter(function() {
+      const removed = $('#chat-room-tabs button').filter(function() {
          return $(this).attr('data-room') === room;
-      }).remove();
+      });
+      if (typeof webui_room_audio_route === 'function') removed.parent('.chat-room-tab').remove();
+      else removed.remove();
       if (this.current_room === room) {
          const next = Object.keys(this.rooms)[0] || webui_authoritative_room || '#rig';
          this.ensure_room(next, true);
@@ -930,6 +946,11 @@ function parse_chat_cmd(e) {
                console.log("Reloading CSS on user command");
                reload_css();
                ChatBox.Append('<div><span class="notice">Reloaded CSS</span></div>');
+               break;
+            case 'rxroute':
+               if (args.length !== 2 || !webui_set_room_audio_route(ChatBox.current_room, args[1].toUpperCase())) {
+                  ChatBox.Append('<div class="error">Usage: /rxroute L|R|S|M</div>');
+               }
                break;
             case 'rxvol':
                $('#rig-rx-vol').val(args[1] / 100);

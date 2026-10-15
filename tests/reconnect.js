@@ -7,6 +7,7 @@ const context = {
    window: {webui_inits: [], location: {protocol: 'https:', hostname: 'station', port: '4420'}},
    localStorage: {getItem: key => settings.get(key) || null},
    console: {log() {}}, setTimeout: (fn, ms) => { pending = fn; delay = ms; return 1; },
+   wmSwitchTab() {},
    clearTimeout: () => { pending = null; }, clearInterval() {},
    $: () => ({show() {}, hide() {}, prop() {}})
 };
@@ -20,17 +21,24 @@ function reconnect(expected) {
    assert.equal(delay, expected * 1000);
    assert.equal(typeof pending, 'function');
 }
-reconnect(60);
-settings.set('reconnect-interval', '90');
-reconnect(90);
+reconnect(1);
+settings.set('reconnect-interval', '3');
+reconnect(3);
 settings.set('reconnect-interval:' + context.make_ws_url(), '12');
 reconnect(12);
 settings.set('reconnect-interval:' + context.make_ws_url(), '');
-reconnect(90);
-for (const invalid of ['0', '-1', '3601', '1.5', 'garbage']) {
+reconnect(3);
+for (const invalid of ['0', '-1', '60', '3601', '1.5', 'garbage']) {
    settings.set('reconnect-interval:' + context.make_ws_url(), invalid);
-   reconnect(60);
+   reconnect(1);
+}
+settings.clear();
+vm.runInContext('reconnect_tries = 0;', context);
+for (const seconds of [1, 2, 4, 8, 16, 32, 60, 60, 60, 60]) {
+   vm.runInContext('reconnecting = false;', context);
+   context.handle_reconnect();
+   assert.equal(delay, seconds * 1000);
 }
 context.stop_reconnecting();
 assert.equal(pending, null);
-console.log('PASS: default/global/server reconnect intervals, invalid values and explicit cancellation');
+console.log('PASS: exponential reconnect growth/cap, global/server base delays, legacy defaults and cancellation');

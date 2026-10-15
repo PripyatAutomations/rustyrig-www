@@ -190,6 +190,7 @@ function webui_parse_auth_msg(msgObj) {
 
    switch (cmd) {
       case 'authorized':
+         reconnect_tries = 0;
          // Save the auth_user as it's the only reputable source of truth for user's name
          if (msgObj.auth.user) {
             auth_user = msgObj.auth.user;

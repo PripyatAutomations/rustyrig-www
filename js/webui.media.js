@@ -167,7 +167,7 @@ function mediaApplyConfirmedCodec(entry) {
 }
 
 // PARITY: rrclient/media.c rrclient_handle_media_vfo.
-// Keep subscriptions alive across tab/VFO selection; mute inactive RX locally.
+// Keep subscriptions alive across tab/VFO selection; room L/R/S/M controls RX output.
 // Leaving a room still releases its automatic subscriptions.
 function mediaSyncActiveVfo() {
    if (!mediaReady) return;

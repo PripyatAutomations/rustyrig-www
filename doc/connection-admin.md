@@ -13,12 +13,13 @@ the link and blocks both outgoing retries and incoming redials until OPEN or
 server restart. Commands do not rewrite configuration or bypass authentication,
 ACLs, or tree admission.
 
-Native client connections use `[general] server.reconnect-interval=60`, with
-`server.reconnect-interval` in `[server:name]` as an optional override. Values
-are seconds, 1..3600; invalid values fall back to 60. The existing ten-attempt
-limit and explicit disconnect behavior remain. Browser configuration has a
-global reconnect interval and an optional current-server override, stored
-locally per WebSocket URL.
+Native and browser clients use exponential backoff: 1, 2, 4, 8, 16, 32,
+then 60 seconds. Authorization resets the sequence; explicit disconnect cancels
+it, and ten failed attempts exhaust retries. Native `[general]
+server.reconnect-interval=1` sets the initial delay, optionally overridden in
+`[server:name]`. Browser settings store the initial delay globally or per URL.
+Initial delays 1..59 are accepted and doubled up to sixty. Invalid values and
+the former default of sixty seconds become one second.
 
 IRC numeric 433 emits `irc.nick-in-use`; it has no effect on RustyRig login
 names. GTK prompts for a replacement nickname for 45 seconds. Closing the

@@ -53,10 +53,28 @@ txGainNode.connect(txCtx.destination);
 
 // One decoder and gain per channel: tab selection never resets a codec stream.
 const rxChannelRoutes = new Map();
+// PARITY: rrclient/audio.c audio_room_route/audio_set_room_route.
+const rxRoomOutputs = new Map();
+function webui_room_audio_route(room) {
+   return rxRoomOutputs.get(make_ws_url() + ':' + String(room || '').toLowerCase()) || 'S';
+}
+function webui_set_room_audio_route(room, output) {
+   if (!['L', 'R', 'S', 'M'].includes(output)) return false;
+   rxRoomOutputs.set(make_ws_url() + ':' + String(room || '').toLowerCase(), output);
+   $('#chat-room-tabs select').each(function() {
+      if (String($(this).attr('data-audio-room')).toLowerCase() === String(room).toLowerCase()) $(this).val(output);
+   });
+   webui_sync_rx_routes();
+   return true;
+}
 function webui_rx_route_audible(channel) {
-   // PARITY: rrclient/audio.c client_channel_pcm.
-   return channel && channel.subscribed && !channel.disabled && mediaRoomMatches(channel) &&
-      (channel.vfo === 0xFF || channel.vfo === vfoLetterToId(activeVfoId()));
+   return channel && channel.subscribed && !channel.disabled && (!channel.room || channel.joined) &&
+      webui_room_audio_route(channel.room) !== 'M';
+}
+function webui_apply_rx_route(route, channel) {
+   route.gain.gain.value = webui_rx_route_audible(channel) ? 1 : 0;
+   const output = webui_room_audio_route(channel.room);
+   route.pan.pan.value = output === 'L' ? -1 : output === 'R' ? 1 : 0;
 }
 function webui_reset_rx_route(uuid) {
    const route = rxChannelRoutes.get(uuid);
@@ -76,8 +94,9 @@ function webui_sync_rx_routes() {
          if (route.decoder) route.decoder.close();
          route.closed = true;
          route.gain.disconnect();
+         route.pan.disconnect();
          rxChannelRoutes.delete(uuid);
-      } else route.gain.gain.value = webui_rx_route_audible(channel) ? 1 : 0;
+      } else webui_apply_rx_route(route, channel);
    }
 }
 function webui_play_channel_packet(buffer, codec, channel) {
@@ -85,9 +104,10 @@ function webui_play_channel_packet(buffer, codec, channel) {
    webui_sync_rx_routes();
    let route = rxChannelRoutes.get(channel.uuid);
    if (!route) {
-      route = {codec, gain: rxCtx.createGain(), time: rxCtx.currentTime, timestamp: 0, discardBefore: 0};
-      route.gain.gain.value = webui_rx_route_audible(channel) ? 1 : 0;
-      route.gain.connect(rxGainNode);
+      route = {codec, gain: rxCtx.createGain(), pan: rxCtx.createStereoPanner(), time: rxCtx.currentTime, timestamp: 0, discardBefore: 0};
+      webui_apply_rx_route(route, channel);
+      route.gain.connect(route.pan);
+      route.pan.connect(rxGainNode);
       rxChannelRoutes.set(channel.uuid, route);
    }
    const formats = {g722: 'g722', opus: 'opus', aacv: 'mp4a.40.2'};

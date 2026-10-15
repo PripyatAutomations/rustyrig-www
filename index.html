@@ -255,8 +255,8 @@
    <div id="win-admin" class="window"></div>
    <div id="win-cfg" class="window">
     <div id="win-cfg-ui" class="cfg-section">
-     <p><label>Reconnect interval (seconds): <input id="reconnect-global" type="number" min="1" max="3600" value="60"/></label></p>
-     <p><label>This server override: <input id="reconnect-server" type="number" min="1" max="3600" placeholder="Use global"/></label></p>
+     <p><label>Initial reconnect delay (seconds, doubles to 60): <input id="reconnect-global" type="number" min="1" max="59" value="1"/></label></p>
+     <p><label>This server override: <input id="reconnect-server" type="number" min="1" max="59" placeholder="Use global"/></label></p>
      <p><label for="autojoin-rooms">Rooms to join after login:</label>
       <input id="autojoin-rooms" type="text" placeholder="#rplywv00-rig0, #rplywv00-rig1"/>
       <small>Separate room names with commas or spaces.</small></p>

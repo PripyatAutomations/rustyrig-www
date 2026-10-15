@@ -4,7 +4,7 @@
 var socket;
 var ws_kicked = false;		// were we kicked? stop autoreconnects if so
 let reconnecting = false;
-let reconnect_delay = 60;
+let reconnect_delay = 1;
 
 var reconnect_timer;  		// so we can stop reconnects later
 var reconnect_tries = 0;	// how many times have we tried to connect?
@@ -56,6 +56,7 @@ function make_ws_url() {
 
 function ws_connect() {
    var rc = reconnecting;
+   if (!rc) reconnect_tries = 0;
    reconnecting = false;
    show_connecting(true);
 
@@ -91,7 +92,7 @@ function ws_connect() {
       var my_ts = msg_timestamp(now);
       ChatBox.Append('<div class="chat-status">' + my_ts + '&nbsp;WebSocket connected.</div>');
       reconnecting = false; 		// Reset reconnect flag on successful connection
-      reconnect_delay = 60; 		// Reset reconnect delay to 1 second
+      reconnect_delay = 1; 		// Reset reconnect delay to 1 second
 
       UserCache.clear();
 
@@ -343,24 +344,25 @@ function handle_reconnect() {
       return;
    }
 
-   // PARITY: rrclient/connman.c global interval with per-server override.
+   // PARITY: rrclient/connman.c exponential reconnect base interval with per-server override.
    const override = localStorage.getItem('reconnect-interval:' + make_ws_url());
    const globalInterval = localStorage.getItem('reconnect-interval');
-   reconnect_delay = Number(override || globalInterval || 60);
-   if (!Number.isInteger(reconnect_delay) || reconnect_delay < 1 || reconnect_delay > 3600) reconnect_delay = 60;
-   reconnecting = true;
-   reconnect_tries++;
-   show_connecting(true);
-
+   reconnect_delay = Number(override || globalInterval || 1);
+   if (!Number.isInteger(reconnect_delay) || reconnect_delay < 1 || reconnect_delay >= 60) reconnect_delay = 1;
    var my_ts = msg_timestamp(Math.floor(Date.now() / 1000));
-   ChatBox.Append('<div class="chat-status error">' + my_ts + '&nbsp; Reconnecting in ' + reconnect_delay + ' sec (attempt ' + reconnect_tries + '/' + max_reconnects + ')</div>');
-
    if (reconnect_tries >= max_reconnects) {
       ChatBox.Append('<div class="chat-status error">' + my_ts + '&nbsp; Giving up on reconnecting after ' + reconnect_tries + ' attempts!</div>');
       stop_reconnecting();
-      wm_switch_tab('login');
+      wmSwitchTab('login');
       return;
    }
+
+   reconnecting = true;
+   reconnect_tries++;
+   reconnect_delay = Math.min(60, reconnect_delay * Math.pow(2, reconnect_tries - 1));
+   show_connecting(true);
+
+   ChatBox.Append('<div class="chat-status error">' + my_ts + '&nbsp; Reconnecting in ' + reconnect_delay + ' sec (attempt ' + reconnect_tries + '/' + max_reconnects + ')</div>');
 
    // Delay reconnecting for a bit
    reconnect_timer = setTimeout(function() {
@@ -412,7 +414,7 @@ window.webui_inits.push(function webui_init() {
    $('span#tab-chat').click(function() { wm_switch_tab('chat'); });
    $('span#tab-rig').click(function() { wm_switch_tab('rig'); });
    $('span#tab-config').click(function() {
-      $('#reconnect-global').val(localStorage.getItem('reconnect-interval') || '60');
+      $('#reconnect-global').val(localStorage.getItem('reconnect-interval') || '1');
       $('#reconnect-server').val(localStorage.getItem('reconnect-interval:' + make_ws_url()) || '');
       wm_switch_tab('cfg');
    });
