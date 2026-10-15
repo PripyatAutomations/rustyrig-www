@@ -159,3 +159,17 @@ context.webui_parse_chat_msg({msg: {ts: 1}, talk: {cmd: 'join', room: '#rig', us
 assert.equal(context.webui_room_controls['#rig'].offline, false);
 assert.equal(boxes['#chat-input'].html, 'retain this draft');
 console.log('PASS: linked-room loss keeps tabs and unsent drafts, and restored join thaws the room');
+
+context.chat_history_add = () => {};
+boxes['#chat-input'].html = '/query bob hello from the query';
+context.parse_chat_cmd();
+assert.equal(chat.current_room, 'bob');
+assert.equal(sent.at(-1).message.talk.target, 'bob');
+assert.equal(sent.at(-1).message.talk.msg_type, 'priv');
+assert.equal(sent.at(-1).message.talk.data, 'hello from the query');
+const beforeQuery = sent.length;
+boxes['#chat-input'].html = '/query carol';
+context.parse_chat_cmd();
+assert.equal(chat.current_room, 'carol');
+assert.equal(sent.length, beforeQuery);
+console.log('PASS: query opens the named private tab and optionally sends trailing text');

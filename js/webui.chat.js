@@ -159,7 +159,7 @@ const webui_command_help = [
    {
       "cmd": "query",
       "help_section": "Chat and rooms",
-      "desc": "Open a private message tab",
+      "desc": "/query user [message]: open a private tab and optionally send text",
       "admin": false
    },
    {
@@ -885,9 +885,16 @@ function parse_chat_cmd(e) {
                break;
             case 'query':
                if (args.length < 2 || !args[1]) {
-                  ChatBox.Append('<div><span class="error">Usage: /query user</span></div>');
+                  ChatBox.Append('<div><span class="error">Usage: /query user [message]</span></div>');
                } else {
-                  ChatBox.ensure_room(args[1], true);
+                  // PARITY: rrclient/cmd.chat.c:cmd_query
+                  private_target = args[1];
+                  ChatBox.ensure_room(private_target, true);
+                  if (args.length > 2) {
+                     message = args.slice(2).join(' ');
+                     chat_msg = true;
+                     msg_type = "priv";
+                  }
                }
                break;
             case 'msg':
