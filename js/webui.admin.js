@@ -5,7 +5,7 @@ const adminTables = {
    rooms: ['name', 'deleted', 'topic', 'has_vfos', 'vfo_mask'],
    quotas: ['name', 'tx_remaining', 'tx_used', 'bandwidth_remaining', 'bandwidth_tx_used', 'bandwidth_rx_used'],
    audit: ['id', 'timestamp', 'username', 'event_type', 'details'],
-   ptt: ['id', 'start_time', 'username', 'vfo', 'frequency', 'mode', 'duration', 'stop_reason', 'recording_id']
+   ptt: ['id', 'server', 'start_time', 'username', 'vfo', 'frequency', 'mode', 'duration', 'stop_reason', 'recording_id']
 };
 const adminPaging = {};
 function adminRequest(table, before) {
