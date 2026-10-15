@@ -134,8 +134,8 @@ function rrInventoryMessage(message) {
       // Discovery spans the connected server's local and linked sites.
       // PARITY: rrclient/objects.events.c inventory_message.
       const parent = ['site','rig'].includes(entry.kind);
-      if (!parent && !(pending.kind === 'rig' ? entry.kind === 'vfo' : entry.kind === pending.kind)) return true;
-      if (entry.kind === 'serial' && entry.service !== 'serial') return true;
+      if (!parent && pending.kind !== 'object' && !(pending.kind === 'rig' ? ['vfo','media','room','cat'].includes(entry.kind) : entry.kind === pending.kind)) return true;
+      if (pending.kind === 'serial' && entry.kind === 'serial' && entry.service !== 'serial') return true;
       pending.count++;
    }
    const line = cmd === 'inventory-end' ? 'End of ' + pending.kind + ' list (' + pending.count + ' entries).' :
@@ -156,7 +156,7 @@ function rrRigCommand(args) {
          return;
       }
       rrInventoryId = id;
-      rrInventoryRequests.set(id,{room: ChatBox.current_room || (typeof webui_authoritative_room !== 'undefined' ? webui_authoritative_room : '#rig'), kind: ['gps','serial'].includes(args[0]) ? args[0] : 'rig', count: 0});
+      rrInventoryRequests.set(id,{room: ChatBox.current_room || (typeof webui_authoritative_room !== 'undefined' ? webui_authoritative_room : '#rig'), kind: ['gps','serial','object'].includes(args[0]) ? args[0] : 'rig', count: 0});
    }
    rrSendMessage(socket, {msg: {type: 'object'}, object: {cmd}, request: {id}});
 }
@@ -193,6 +193,7 @@ function rrObjectInContext(object, objects, room) {
 }
 // PARITY: rrclient/objects.c rr_object_cache_dump_selected.
 function rrObjectsList(reference) {
+   if (!reference) { rrRigCommand(['object']); return true; }
    const room = ChatBox.current_room;
    const objects = rrObjectReferences();
    const symbols = new Map(objects.map(o => [o.uuid,o.symbol]));
@@ -219,6 +220,37 @@ function rrObjectsList(reference) {
             (p.state && !p.state.available ? ' (unavailable)' : '') +
             (p.descriptor?.writable ? ' [writable]' : ''));
       }
+   }
+   return true;
+}
+
+// PARITY: rrclient/receiver.connect.c; server owns receiver admission/configuration.
+var rrReceiverSerial = 0, rrReceiverPending = new Map();
+function rrReceiverCommand(args) {
+   const action = (args[1] || '').toLowerCase();
+   if (!['connect','add'].includes(action) || args.length !== 3) {
+      ChatBox.Append($('<div class="notice"></div>').text('Usage: /receivers connect|add <URL>. Directory browsing/import is native-only.'), ChatBox.current_room);
+      return;
+   }
+   if (!window.socket || socket.readyState !== WebSocket.OPEN) return;
+   for (const [id, request] of rrReceiverPending) if (Date.now() - request.started > 15000 || request.socket !== socket) rrReceiverPending.delete(id);
+   if (rrReceiverPending.size) return;
+   const id = 'receiver-' + (++rrReceiverSerial);
+   rrReceiverPending.set(id, {socket, save: action === 'add', room: ChatBox.current_room, started: Date.now()});
+   rrSendMessage(socket, {msg: {type: 'talk'}, talk: {cmd: 'admin', action: action === 'add' ? 'websdr-add' : 'websdr-connect',
+      data: JSON.stringify({request: id, driver: 'kiwi', url: args[2]})}});
+}
+function rrReceiverResult(message) {
+   if (message.talk?.action !== 'websdr-result') return false;
+   let result;
+   try { result = JSON.parse(message.talk.data); } catch (_) { return true; }
+   const pending = rrReceiverPending.get(result.request);
+   if (!pending || pending.socket !== socket || Date.now() - pending.started > 15000) return true;
+   rrReceiverPending.delete(result.request);
+   const text = result.error || (pending.save ? 'Receiver added to server configuration.' : 'Joining receiver rig.');
+   ChatBox.Append($('<div class="notice"></div>').text(text), pending.room);
+   if (!result.error && !pending.save && typeof result.room === 'string' && /^#[^\s,]+$/.test(result.room)) {
+      rrSendMessage(socket, {msg: {type: 'talk'}, talk: {cmd: 'join', target: result.room}});
    }
    return true;
 }

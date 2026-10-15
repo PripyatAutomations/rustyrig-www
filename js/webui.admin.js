@@ -56,6 +56,7 @@ function adminEdit(table, row) {
    adminRequest(table);
 }
 function adminResult(message) {
+   if (typeof rrReceiverResult === 'function' && rrReceiverResult(message)) return;
    const table = message.talk.target;
    if (!adminTables[table]) return;
    let row;

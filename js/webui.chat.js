@@ -195,7 +195,13 @@ const webui_command_help = [
    {
       "cmd": "object",
       "help_section": "Radio and discovery",
-      "desc": "Inspect objects: /object [rig0|rig0.A|uuid]",
+      "desc": "Resource tree; /object <rig0|rig0.A|uuid> inspects cached properties",
+      "admin": false
+   },
+   {
+      "cmd": "receivers",
+      "help_section": "Radio and discovery",
+      "desc": "Request a receiver through this server: /receivers connect|add <URL>",
       "admin": false
    },
    {
@@ -857,6 +863,7 @@ function parse_chat_cmd(e) {
             // commands with no arguments
             // Native serial transports are frontend-specific; never forward to server.
             case 'rig': rrRigCommand(args); break;
+            case 'receivers': rrReceiverCommand(args); break;
             case 'gps': rrGpsCommand(args); break;
             case 'sercom':
                if (args.length === 1 || (args.length === 2 && ['list','remote'].includes(args[1].toLowerCase()))) { rrRigCommand(['serial', 'list']); break; }
