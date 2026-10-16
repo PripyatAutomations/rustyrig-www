@@ -22,7 +22,7 @@ class AudioDecoder {
    }
 }
 const socket = {readyState: 1};
-const ctx = {AudioContext, AudioDecoder, EncodedAudioChunk: class {constructor(options) {Object.assign(this, options);}},
+const ctx = {localStorage: {getItem() {return null;}}, AudioContext, AudioDecoder, EncodedAudioChunk: class {constructor(options) {Object.assign(this, options);}},
    window: {webui_inits: [], socket}, document: {addEventListener() {}}, console,
    make_ws_url: () => 'ws://station',
    $: () => ({val: () => 1, change() {}, click() {}, each() {}}), socket,
