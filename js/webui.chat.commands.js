@@ -180,9 +180,14 @@ function parse_chat_cmd(e) {
                show_user_menu(args[1]);
                break;
             case 'logout':
-            case 'quit':
                logout();
                break;
+            case 'quit': {
+               // PARITY: rrclient/cmd.misc.c cmd_quit: strip only a leading force token.
+               const reason = args.slice(1).join(' ').replace(/^-?(?:y|yes)(?:\s+|$)/i, '');
+               logout(reason);
+               break;
+            }
             case 'reloadcss':
                console.log("Reloading CSS on user command");
                reload_css();

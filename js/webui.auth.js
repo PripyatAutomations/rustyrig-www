@@ -123,7 +123,7 @@ async function authenticate(login_user, login_pass, auth_token, nonce) {
    return msgObj;
 }
 
-function logout() {
+function logout(reason) {
    var msgObj = {
       "msg": {
          "type": "auth"
@@ -133,6 +133,7 @@ function logout() {
          "user": auth_user
       }
    };
+   if (typeof reason === 'string') { msgObj.auth.cmd = 'quit'; msgObj.auth.msg = reason || 'no reason given'; }
    // Flag that we're logging out BEFORE sending, so the server's close
    // can't trip the auto-reconnect in socket.onclose/onerror
    ws_kicked = true;
