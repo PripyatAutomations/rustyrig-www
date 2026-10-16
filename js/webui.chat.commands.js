@@ -89,6 +89,7 @@ function parse_chat_cmd(e) {
          switch(command.toLowerCase()) {
             // commands with no arguments
             // Native serial transports are frontend-specific; never forward to server.
+            case 'files': rrFilesOpen(); break;
             case 'rig': rrRigCommand(args); break;
             case 'receivers': rrReceiverCommand(args); break;
             case 'gps': rrGpsCommand(args); break;

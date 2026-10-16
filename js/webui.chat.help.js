@@ -101,6 +101,7 @@ const webui_command_help = [
       "desc": "Look up a grid square or coordinates",
       "admin": false
    },
+   {"cmd":"files","help_section":"Radio and discovery","desc":"Browse server shares; upload, download, rename, edit, move and delete files","admin":false},
    {
       "cmd": "object",
       "help_section": "Radio and discovery",

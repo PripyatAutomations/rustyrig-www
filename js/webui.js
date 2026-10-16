@@ -112,6 +112,7 @@ function ws_connect() {
 
    /* NOTE: On error sorts this out for us */
    socket.onclose = function(event) {
+      if(typeof rrFilesDisconnected === "function")rrFilesDisconnected();
       clearInterval(ws_keepalive_timer);
       rrObjectCache.clear();
       if (typeof webui_connection_state_lost === 'function') webui_connection_state_lost();
@@ -218,7 +219,8 @@ function webui_handle_ws_msg(event) {
             if (latency_samples.length > 50) latency_samples.shift();
          }
 
-         if (msgObj.msg?.type === 'object' || msgObj.msg?.type === 'property') {
+         if (msgObj.msg?.type === 'file') { rrFileMessage(msgObj);
+         } else if (msgObj.msg?.type === 'object' || msgObj.msg?.type === 'property') {
             if (rrInventoryMessage(msgObj)) { /* one-shot inventory */ }
             else if (!rrObjectCache.apply(msgObj)) console.warn('Invalid object/property message');
             else if (typeof webui_refresh_room_vfo === 'function') webui_refresh_room_vfo();
