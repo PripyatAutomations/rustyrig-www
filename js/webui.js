@@ -252,6 +252,7 @@ function webui_handle_ws_msg(event) {
             /* PARITY: rustyrig-fw/rrclient/events.c:rrclient_handle_callsign */
             webui_parse_callsign_msg(msgObj);
          } else if (msgObj.notice) {   // notices from ws_send_notice()
+            if (typeof adminPasswordNotice === 'function') adminPasswordNotice(String(msgObj.notice.msg || ''));
             var notice_ts = msg_timestamp(msgObj.msg.ts);
             ChatBox.Append(`<div class="chat-status notice">${notice_ts}&nbsp;${webui_escape_html(msgObj.notice.msg)}</div>`);
          } else if (msgObj.msg.type === 'pong') {

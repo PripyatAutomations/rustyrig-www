@@ -11,6 +11,51 @@ const adminPaging = {};
 function adminRequest(table, before) {
    chat_send_command('admin', {data: table + (before ? ' ' + before : '')});
 }
+// PARITY: rrclient/gtk/gtk.admin.c admin_set_password.
+function adminSetPassword(name) {
+   const dialog = document.createElement('dialog'), form = document.createElement('form');
+   form.method = 'dialog';
+   const heading = document.createElement('p');
+   heading.textContent = 'Set Password for ' + name + ' (8–128 bytes, no whitespace)';
+   form.appendChild(heading);
+   const inputs = ['New password', 'Confirm password'].map(placeholder => {
+      const input = document.createElement('input');
+      input.type = 'password'; input.placeholder = placeholder; input.autocomplete = 'new-password';
+      form.appendChild(input); return input;
+   });
+   const error = document.createElement('p'); form.appendChild(error);
+   ['Cancel', 'Set Password'].forEach(label => {
+      const button = document.createElement('button'); button.textContent = button.value = label;
+      if (label === 'Cancel') {
+         button.type = 'button'; button.onclick = () => dialog.close('Cancel');
+      }
+      if (label === 'Set Password') button.onclick = event => {
+         const value = inputs[0].value, length = new TextEncoder().encode(value).length;
+         if (value !== inputs[1].value || length < 8 || length > 128 || /\s/.test(value)) {
+            event.preventDefault(); error.textContent = 'Passwords must match and use 8–128 bytes without whitespace';
+         }
+      };
+      form.appendChild(button);
+   });
+   dialog.appendChild(form);
+   dialog.addEventListener('close', () => {
+      if (dialog.returnValue === 'Set Password') chat_send_command('user', {data: 'pass ' + name + ' ' + inputs[0].value});
+      inputs.forEach(input => { input.value = ''; });
+      dialog.remove();
+   });
+   document.body.appendChild(dialog); dialog.showModal();
+}
+
+// Temporary credentials go to the requester, not the shared audit stream.
+function adminPasswordNotice(text) {
+   if (text.startsWith('USER: temporary password for ') ||
+       (text.startsWith('USER: added ') && text.includes(' with temporary password ')) ||
+       text.startsWith('USER: password changed for ') ||
+       text.startsWith('USER: failed to reset password for ') ||
+       text.startsWith('USER: failed to change password for ') ||
+       text.startsWith('USER: insufficient privilege to modify ')) window.alert(text);
+}
+
 function adminEdit(table, row) {
    if (table === 'users') {
       const dialog = document.createElement('dialog');
@@ -31,6 +76,15 @@ function adminEdit(table, row) {
       const hint = document.createElement('p');
       hint.textContent = 'enabled / password_change_required: 0 or 1; expiry: Unix seconds, blank = never';
       form.appendChild(hint);
+      ['Set Password', 'Reset PW'].forEach(label => {
+         const button = document.createElement('button');
+         button.type = 'button'; button.textContent = label;
+         button.onclick = () => {
+            if (label === 'Set Password') adminSetPassword(row.name);
+            else chat_send_command('user', {data: 'resetpw ' + row.name});
+         };
+         form.appendChild(button);
+      });
       ['Cancel', 'Save'].forEach(label => {
          const button = document.createElement('button');
          button.textContent = button.value = label;
@@ -83,7 +137,7 @@ function adminResult(message) {
       });
       if (table === 'users' || table === 'rooms' || table === 'quotas') {
          const td = document.createElement('td');
-         const actions = table === 'users' ? ['Edit', 'Lock', 'Unlock', 'Remove', 'Reset password'] : table === 'quotas' ? ['TX SET', 'TX ADD', 'BW SET', 'BW ADD'] : ['Edit', 'Remove', 'Restore'];
+         const actions = table === 'users' ? ['Edit', 'Lock', 'Unlock', 'Remove', 'Reset PW'] : table === 'quotas' ? ['TX SET', 'TX ADD', 'BW SET', 'BW ADD'] : ['Edit', 'Remove', 'Restore'];
          actions.forEach(action => {
             const button = document.createElement('button');
             button.textContent = action;
@@ -100,7 +154,7 @@ function adminResult(message) {
                   if (!window.confirm('Remove account ' + row.name + '?')) return;
                }
                const command = table === 'users' ? 'user' : 'room';
-               chat_send_command(command, {data: (action === 'Restore' ? 'add' : action === 'Reset password' ? 'resetpw' : action.toLowerCase()) + ' ' + row.name});
+               chat_send_command(command, {data: (action === 'Restore' ? 'add' : action === 'Reset PW' ? 'resetpw' : action.toLowerCase()) + ' ' + row.name});
                adminRequest(table);
             };
             td.appendChild(button);
