@@ -416,9 +416,14 @@ window.webui_inits.push(function webui_init() {
    $('span#tab-chat').click(function() { wm_switch_tab('chat'); });
    $('span#tab-rig').click(function() { wm_switch_tab('rig'); });
    $('span#tab-config').click(function() {
+      $('#audio-mute-talkback').prop('checked', localStorage.getItem('audio.mute-talkback') !== 'false');
       $('#reconnect-global').val(localStorage.getItem('reconnect-interval') || '1');
       $('#reconnect-server').val(localStorage.getItem('reconnect-interval:' + make_ws_url()) || '');
       wm_switch_tab('cfg');
+   });
+   $('#audio-mute-talkback').on('change', function() {
+      localStorage.setItem('audio.mute-talkback', String(this.checked));
+      webui_sync_rx_routes();
    });
    $('#reconnect-global, #reconnect-server').on('change', function() {
       const key = this.id === 'reconnect-global' ? 'reconnect-interval' : 'reconnect-interval:' + make_ws_url();

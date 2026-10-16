@@ -67,11 +67,24 @@ function webui_set_room_audio_route(room, output) {
    webui_sync_rx_routes();
    return true;
 }
+// PARITY: rrclient/media.c rrclient_media_local_tx and audio.c audio_mix_block.
+function webui_mute_talkback(channel) {
+   if (localStorage.getItem('audio.mute-talkback') === 'false' || !channel ||
+       typeof auth_user === 'undefined' || !auth_user || typeof UserCache === 'undefined') return false;
+   const room = String(channel.controlRoom || channel.room || '').toLowerCase();
+   return !!room && UserCache.get_all().some(user =>
+      String(user.name).toLowerCase() === String(auth_user).toLowerCase() && parse_bool_field(user.ptt) &&
+      mediaSameRig(String(user.ptt_room || user.room || ''), room) &&
+      (channel.vfo === 0xFF || String(user.ptt_vfo || '').toUpperCase() === String.fromCharCode(65 + channel.vfo)));
+}
 function webui_rx_route_audible(channel) {
    return channel && channel.subscribed && !channel.disabled && (!channel.room || channel.joined) &&
-      webui_room_audio_route(channel.room) !== 'M';
+      webui_room_audio_route(channel.room) !== 'M' && !webui_mute_talkback(channel);
 }
 function webui_apply_rx_route(route, channel) {
+   const muteTalkback = webui_mute_talkback(channel);
+   if (route.muteTalkback !== muteTalkback) webui_reset_rx_route(channel.uuid);
+   route.muteTalkback = muteTalkback;
    route.gain.gain.value = webui_rx_route_audible(channel) ? 1 : 0;
    const output = webui_room_audio_route(channel.room);
    route.pan.pan.value = output === 'L' ? -1 : output === 'R' ? 1 : 0;
@@ -465,6 +478,7 @@ function decodePCM16ToFloat32(buffer) {
 }
 
 function playFloat32Samples(float32Data, sampleRate, route = null) {
+   if (route && route.muteTalkback) return;
    const samplesPerPacket = float32Data.length;
    const duration = samplesPerPacket / sampleRate;
    if (typeof socket !== 'undefined' && socket && socket.readyState !== 1) return;

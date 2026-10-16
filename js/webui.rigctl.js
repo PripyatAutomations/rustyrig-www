@@ -330,6 +330,7 @@ function webui_parse_cat_msg(msgObj) {
          if (user) UserCache.update({ name: user, ptt: ptt_state });
          ptt_confirm_state(user, ptt_vfo, ptt_state, msgObj.cat.room);
          ptt_button_apply();
+         if (typeof webui_sync_rx_routes === "function") webui_sync_rx_routes();
       }
    } else if (cmd) {
       // PARITY: rrclient/vfo.c: requests never confirm observed hardware state.
@@ -365,6 +366,7 @@ function webui_parse_cat_msg(msgObj) {
          if (user) UserCache.update({ name: user, ptt: ptt_state });
          ptt_confirm_state(user, state_vfo, ptt_state, msgObj.cat.room);
          ptt_button_apply();
+         if (typeof webui_sync_rx_routes === "function") webui_sync_rx_routes();
       }
       for (const field of ['freq', 'mode', 'width']) {
          if (state[field + '-available'] === false) {
