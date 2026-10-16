@@ -601,3 +601,8 @@ span#chat-ptt-wrap {
 .chat-ptt {
    width: 5em !important;
 }
+
+/* Highlight the sender token of messages mentioning our nickname. */
+.chat-msg-prefix.chat-mention {
+   color: yellow;
+}

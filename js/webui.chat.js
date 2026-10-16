@@ -6,6 +6,17 @@
 //
 // Convert http(s) urls into clickable links
 // Escape chat text and decorate HTTP(S) URLs without HTML injection.
+// PARITY: rrclient/gtk/gtk.chat.c gtk_chat_incoming nickname boundaries.
+function chat_mentions_nick(text, nickname) {
+   if (!text || !nickname) return false;
+   const haystack = String(text).toLowerCase(), needle = String(nickname).toLowerCase();
+   const nickChar = c => !!c && (/[A-Za-z0-9_]/.test(c) || "-[]\\`^{}|".includes(c));
+   for (let index = haystack.indexOf(needle); index >= 0; index = haystack.indexOf(needle, index + 1)) {
+      if (!nickChar(haystack[index - 1]) && !nickChar(haystack[index + needle.length])) return true;
+   }
+   return false;
+}
+
 function msg_create_links(message) {
    const text = String(message);
    const matches = text.matchAll(/https?:\/\/[^\s<>"']+/g);
@@ -531,6 +542,8 @@ function webui_parse_chat_msg(msgObj) {
       var rawSender = msgObj.talk.from;
       var sender = webui_escape_html(rawSender || "");
       var msg_type = msgObj.talk.msg_type;
+      const prefixClass = rawSender !== auth_user && ['pub', 'action', 'priv', 'privmsg', 'notice'].includes(msg_type) &&
+         chat_mentions_nick(msgObj.talk.data, auth_user) ? 'chat-msg-prefix chat-mention' : 'chat-msg-prefix';
       // PARITY: rrclient/userlist.c userlist_display_name: no gap inside <@nick>.
       if (msg_type === 'pub' || msg_type === 'action') {
          if (typeof webui_note_spoke === 'function') webui_note_spoke(targetRoom, rawSender);
@@ -552,9 +565,9 @@ function webui_parse_chat_msg(msgObj) {
             }
          } else {
             if (msg_type === 'action') {
-               append('<div>' + msg_ts + ' ***&nbsp;<span class="chat-msg-prefix">&nbsp;' + sender + '&nbsp;</span>***&nbsp;<span class="chat-msg">' + message + '</span></div>');
+               append('<div>' + msg_ts + ' ***&nbsp;<span class="' + prefixClass + '">&nbsp;' + sender + '&nbsp;</span>***&nbsp;<span class="chat-msg">' + message + '</span></div>');
             } else if (msg_type === 'pub') {
-               append('<div>' + msg_ts + ' <span class="chat-msg-prefix">&lt;' + sender + '&gt;&nbsp;</span><span class="chat-msg">' + message + '</span></div>');
+               append('<div>' + msg_ts + ' <span class="' + prefixClass + '">&lt;' + sender + '&gt;&nbsp;</span><span class="chat-msg">' + message + '</span></div>');
             }
 
             play_notify_bell();
@@ -566,7 +579,7 @@ function webui_parse_chat_msg(msgObj) {
          append('<div class="chat-status notice">' + sender + ': ' + webui_escape_html(message) + '</div>');
       } else if (msg_type === "priv" || msg_type === "privmsg") {
          message = msg_create_links(message);
-         append('<div>' + msg_ts + ' <span class="chat-msg-prefix">*' +
+         append('<div>' + msg_ts + ' <span class="' + prefixClass + '">*' +
             sender + '*&nbsp;</span><span class="chat-msg">' +
             message + '</span></div>');
          if (rawSender !== auth_user) {
