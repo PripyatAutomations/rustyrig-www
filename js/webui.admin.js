@@ -11,6 +11,39 @@ const adminPaging = {};
 function adminRequest(table, before) {
    chat_send_command('admin', {data: table + (before ? ' ' + before : '')});
 }
+// PARITY: rrclient/gtk/gtk.admin.c admin_create_user.
+function adminCreateUser() {
+   const dialog = document.createElement('dialog'), form = document.createElement('form');
+   form.method = 'dialog';
+   const heading = document.createElement('p');
+   heading.textContent = 'Create User — a temporary password will be shown after creation';
+   form.appendChild(heading);
+   const name = document.createElement('input'), privileges = document.createElement('input');
+   name.placeholder = 'Username (letters, numbers, _ or -)';
+   privileges.placeholder = 'Comma-separated privileges'; privileges.value = 'view,chat';
+   form.append(name, privileges);
+   const edit = document.createElement('button'); edit.type = 'button'; edit.textContent = 'Edit Privs';
+   edit.onclick = () => adminEditPrivileges(name.value, privileges.value, value => { privileges.value = value; });
+   form.appendChild(edit);
+   const error = document.createElement('p'); form.appendChild(error);
+   ['Cancel', 'Create User'].forEach(label => {
+      const button = document.createElement('button'); button.textContent = button.value = label;
+      if (label === 'Cancel') {
+         button.type = 'button'; button.onclick = () => dialog.close('Cancel');
+      } else button.onclick = event => {
+         if (!/^[a-zA-Z0-9_-]+$/.test(name.value) || !privileges.value || /\s/.test(privileges.value)) {
+            event.preventDefault(); error.textContent = 'Enter a valid username and comma-separated privileges without spaces';
+         }
+      };
+      form.appendChild(button);
+   });
+   dialog.appendChild(form);
+   dialog.addEventListener('close', () => {
+      if (dialog.returnValue === 'Create User') chat_send_command('user', {data: 'add ' + name.value + ' ' + privileges.value});
+      dialog.remove();
+   });
+   document.body.appendChild(dialog); dialog.showModal(); name.focus();
+}
 // PARITY: rrclient/gtk/gtk.admin.c admin_set_password.
 function adminSetPassword(name) {
    const dialog = document.createElement('dialog'), form = document.createElement('form');
@@ -48,7 +81,12 @@ function adminSetPassword(name) {
 
 // Temporary credentials go to the requester, not the shared audit stream.
 function adminPasswordNotice(text) {
+   if (text.startsWith('USER: added ')) adminRequest('users');
    if (text.startsWith('USER: temporary password for ') ||
+       text.startsWith('USER: failed to add ') ||
+       text.startsWith('USER: account already exists: ') ||
+       text.startsWith('USER: no user slots are available') ||
+       text.startsWith('USER: administrators cannot create ') ||
        (text.startsWith('USER: added ') && text.includes(' with temporary password ')) ||
        text.startsWith('USER: password changed for ') ||
        text.startsWith('USER: failed to reset password for ') ||
@@ -212,6 +250,10 @@ window.webui_inits.push(function() {
       refresh.textContent = 'Refresh';
       refresh.onclick = () => adminRequest(name);
       section.appendChild(refresh);
+      if (name === 'users') {
+         const create = document.createElement('button'); create.textContent = 'Create User';
+         create.onclick = adminCreateUser; section.appendChild(create);
+      }
       const more = document.createElement('button');
       more.id = 'admin-' + name + '-more';
       more.textContent = 'Load older / more';
