@@ -56,6 +56,34 @@ function adminPasswordNotice(text) {
        text.startsWith('USER: insufficient privilege to modify ')) window.alert(text);
 }
 
+// PARITY: rrclient/gtk/gtk.privileges.c gtk_edit_privileges.
+function adminEditPrivileges(name, current, apply) {
+   const dialog = document.createElement('dialog'), form = document.createElement('form');
+   form.method = 'dialog';
+   const heading = document.createElement('p');
+   heading.textContent = 'Edit Privileges for ' + name + '. Protected accounts and grants require owner privileges.';
+   form.appendChild(heading);
+   const selected = new Set(String(current || '').split(',').filter(value => value && value.toLowerCase() !== 'none'));
+   const names = [...new Set([...rrKnownPrivileges, ...selected])].sort();
+   const list = document.createElement('div');
+   list.style.maxHeight = '55vh'; list.style.overflowY = 'auto';
+   const inputs = names.map(name => {
+      const label = document.createElement('label'); label.style.display = 'block';
+      const input = document.createElement('input'); input.type = 'checkbox'; input.checked = selected.has(name); input.value = name;
+      label.append(input, document.createTextNode(' ' + name)); list.appendChild(label); return input;
+   });
+   form.appendChild(list);
+   ['Cancel', 'Apply'].forEach(label => {
+      const button = document.createElement('button'); button.textContent = button.value = label; form.appendChild(button);
+   });
+   dialog.appendChild(form);
+   dialog.addEventListener('close', () => {
+      if (dialog.returnValue === 'Apply') apply(inputs.filter(input => input.checked).map(input => input.value).join(','));
+      dialog.remove();
+   });
+   document.body.appendChild(dialog); dialog.showModal();
+}
+
 function adminEdit(table, row) {
    if (table === 'users') {
       const dialog = document.createElement('dialog');
@@ -76,11 +104,12 @@ function adminEdit(table, row) {
       const hint = document.createElement('p');
       hint.textContent = 'enabled / password_change_required: 0 or 1; expiry: Unix seconds, blank = never';
       form.appendChild(hint);
-      ['Set Password', 'Reset PW'].forEach(label => {
+      ['Edit Privs', 'Set Password', 'Reset PW'].forEach(label => {
          const button = document.createElement('button');
          button.type = 'button'; button.textContent = label;
          button.onclick = () => {
-            if (label === 'Set Password') adminSetPassword(row.name);
+            if (label === 'Edit Privs') adminEditPrivileges(row.name, entries.permissions.value, value => { entries.permissions.value = value; });
+            else if (label === 'Set Password') adminSetPassword(row.name);
             else chat_send_command('user', {data: 'resetpw ' + row.name});
          };
          form.appendChild(button);
@@ -137,12 +166,15 @@ function adminResult(message) {
       });
       if (table === 'users' || table === 'rooms' || table === 'quotas') {
          const td = document.createElement('td');
-         const actions = table === 'users' ? ['Edit', 'Lock', 'Unlock', 'Remove', 'Reset PW'] : table === 'quotas' ? ['TX SET', 'TX ADD', 'BW SET', 'BW ADD'] : ['Edit', 'Remove', 'Restore'];
+         const actions = table === 'users' ? ['Edit', 'Edit Privs', 'Lock', 'Unlock', 'Remove', 'Reset PW'] : table === 'quotas' ? ['TX SET', 'TX ADD', 'BW SET', 'BW ADD'] : ['Edit', 'Remove', 'Restore'];
          actions.forEach(action => {
             const button = document.createElement('button');
             button.textContent = action;
             button.onclick = () => {
                if (action === 'Edit') return adminEdit(table, row);
+               if (action === 'Edit Privs') return adminEditPrivileges(row.name, row.permissions, value => {
+                  if (value !== row.permissions) chat_send_command('admin', {action: 'user-edit', target: row.name, data: JSON.stringify({permissions: value})});
+               });
                if (table === 'quotas') {
                   const amount = window.prompt(action + ' for ' + row.name + ' (TX: 30m; BW: 10M' + (action.endsWith('SET') ? '; SET 0 exhausts allowance' : '') + ')');
                   if (amount === null) return;
