@@ -700,6 +700,10 @@ function webui_parse_chat_msg(msgObj) {
          who_line(`This user is currently MUTEd. Rigctl is temporarily suspended.`, 'error');
       }
       who_line(`Sessions:&nbsp;&nbsp;&nbsp;&nbsp;${webui_escape_html(msgObj.talk.sessions || 0)}`);
+      // PARITY: rrclient/events.c rrclient_handle_whois Rooms.
+      if (msgObj.talk.rooms !== undefined) {
+         who_line(`Rooms:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${webui_escape_html(msgObj.talk.rooms || '(none)')}`);
+      }
       if (msgObj.talk.connected) {
          who_line(`Connected:&nbsp;&nbsp;&nbsp;${new Date(msgObj.talk.connected * 1000).toLocaleString()}`);
       }
