@@ -481,7 +481,9 @@ function webui_parse_chat_msg(msgObj) {
    }
 
    if (cmd === 'topic') {
-      append('<div class="chat-status notice">Topic: ' + webui_escape_html(msgObj.talk.topic || '(none)') + '</div>');
+      // PARITY: rrclient/events.c rrclient_handle_room_topic.
+      const setter = !msgObj.talk.query && msgObj.talk.user ? ' set by ' + webui_escape_html(msgObj.talk.user) : '';
+      append('<div class="chat-status notice">' + msg_timestamp(msgObj.msg.ts) + ' Topic' + setter + ': ' + webui_escape_html(msgObj.talk.topic || '(none)') + '</div>');
       return;
    }
    if (cmd === 'room-list') {
@@ -529,6 +531,12 @@ function webui_parse_chat_msg(msgObj) {
       var rawSender = msgObj.talk.from;
       var sender = webui_escape_html(rawSender || "");
       var msg_type = msgObj.talk.msg_type;
+      // PARITY: rrclient/userlist.c userlist_display_name: no gap inside <@nick>.
+      if (msg_type === 'pub' || msg_type === 'action') {
+         const member = UserCache.get(rawSender, targetRoom);
+         const privs = new Set(String(member && member.privs || '').split(/[^A-Za-z0-9]+/).filter(Boolean).map(p => p.toLowerCase()));
+         sender = (privs.has('owner') || privs.has('admin') ? '@' : privs.has('noob') ? '+' : '') + sender;
+      }
 
       if (msg_type === "file_chunk") {
          handle_file_chunk(msgObj);

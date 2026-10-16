@@ -30,7 +30,8 @@ function msg_timestamp(msg_ts) {
    let hh = String(date.getHours()).padStart(2, '0');
    let mm = String(date.getMinutes()).padStart(2, '0');
    let ss = String(date.getSeconds()).padStart(2, '0');
-   return `[${hh}:${mm}:${ss}]`;
+   // PARITY: rrclient/gtk/gtk.core.c gtk_colorize_string.
+   return `<span class="chat-timestamp" style="font-size:smaller">[${hh}:${mm}:${ss}]</span>`;
 }
 
 function send_ping(sock) {

@@ -265,11 +265,10 @@ const UserCache = {
       cul_render();
    },
 
-   get(name) {
+   get(name, room) {
       const entry = this.users[name] || null;
-      if (!entry || typeof ChatBox === 'undefined' || !ChatBox.current_room ||
-          entry.room === ChatBox.current_room) return entry;
-      return null;
+      if (room === undefined) room = typeof ChatBox === 'undefined' ? null : ChatBox.current_room;
+      return !entry || !room || entry.room === room ? entry : null;
    },
 
    get_all() {
