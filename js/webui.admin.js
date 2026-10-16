@@ -40,8 +40,10 @@ function adminEdit(table, row) {
       dialog.addEventListener('close', () => {
          if (dialog.returnValue === 'Save') {
             const fields = {};
-            Object.entries(entries).forEach(([field, input]) => { fields[field] = input.value; });
-            chat_send_command('admin', {action: 'user-edit', target: row.name, data: JSON.stringify(fields)});
+            Object.entries(entries).forEach(([field, input]) => {
+               if (!input.readOnly && input.value !== String(row[field] || '')) fields[field] = input.value;
+            });
+            if (Object.keys(fields).length) chat_send_command('admin', {action: 'user-edit', target: row.name, data: JSON.stringify(fields)});
          }
          dialog.remove();
       });
@@ -66,6 +68,8 @@ function adminResult(message) {
    if (message.talk.action === 'confirm' && table === 'rooms') {
       if (window.confirm(row.deleted ? 'Permanently delete room ' + row.room + '? All chat history will be lost. This cannot be undone.' : 'Remove room ' + row.room + '? It can be restored later.'))
          chat_send_command('admin', {action: 'room-remove', target: row.room, data: row.confirmation});
+   } else if (message.talk.action === 'error') {
+      window.alert(row.message || 'Account operation failed');
    } else if (message.talk.action === 'changed') {
       adminRequest(table);
    } else if (message.talk.action === 'begin') {
