@@ -22,7 +22,7 @@ vm.createContext(context);
 context.TextEncoder = TextEncoder;
 for (const file of ["webui.wire.registry.js", "webui.wire.js"])
    vm.runInContext(fs.readFileSync("www/js/" + file, "utf8"), context);
-for (const file of ['webui.chat.js', 'webui.admin.js', 'webui.rigctl.js'])
+for (const file of ['webui.chat.js', 'webui.chat.help.js', 'webui.chat.users.js', 'webui.chat.commands.js', 'webui.admin.js', 'webui.rigctl.js'])
    vm.runInContext(fs.readFileSync('www/js/' + file, 'utf8'), context);
 vm.runInContext('cul_render = function() {};', context);
 context.ptt_btn_init();

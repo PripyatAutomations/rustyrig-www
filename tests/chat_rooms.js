@@ -54,7 +54,8 @@ function $(selector) { return collection(selector); }
 const context = {console, $, setTimeout() {}, webui_authoritative_room: '#rig', document: {}};
 context.window = context;
 vm.createContext(context);
-vm.runInContext(fs.readFileSync('www/js/webui.chat.js', 'utf8'), context);
+for (const file of ['webui.chat.js', 'webui.chat.help.js', 'webui.chat.users.js', 'webui.chat.commands.js'])
+   vm.runInContext(fs.readFileSync('www/js/' + file, 'utf8'), context);
 const chat = vm.runInContext('new WebUiChat("#chat-box")', context);
 context.ChatBox = chat;
 chat.ensure_room('#rig', true);

@@ -61,3 +61,12 @@ Observable behavior includes:
 Frontend-specific DOM/CSS/browser behavior does not require source parity.
 
 Use `PARITY:` comments for important coupled implementations.
+
+## Source organization
+
+Aim for 500–800 code lines per owned source file, with a hard cap of 1500,
+excluding comments/license boilerplate and blank lines. Keep functions under a
+few hundred code lines, using cohesive helpers and short responsibility comments.
+Keep the ordered script loader and standalone VM fixtures synchronized when
+splitting scripts. Record conspicuous performance/security concerns separately
+from an organization refactor so behavior changes can be reviewed on their own.

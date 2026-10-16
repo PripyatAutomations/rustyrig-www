@@ -10,7 +10,8 @@ const context = {console, auth_user: 'alice', auth_privs: 'view,chat', auth_toke
    $: () => ({data: () => false, val: () => 1})};
 context.window = context;
 vm.createContext(context);
-vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'webui.chat.js'), 'utf8'), context);
+for (const file of ['webui.chat.js', 'webui.chat.help.js', 'webui.chat.users.js', 'webui.chat.commands.js'])
+   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', file), 'utf8'), context);
 assert.equal(context.msg_create_links('<img src=x onerror=evil()>'), '&lt;img src=x onerror=evil()&gt;');
 const linked = context.msg_create_links('https://host/?a=1&b=2" onclick="evil() <svg/onload=evil()>');
 assert.match(linked, /href="https:\/\/host\/\?a=1&amp;b=2"/);

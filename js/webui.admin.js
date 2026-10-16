@@ -1,5 +1,5 @@
 // PARITY: rustyrig-fw/rrclient/gtk/gtk.admin.c quota fields and action prompts.
-// PARITY: rrserver/events.c admin_send and rrclient/gtk/gtk.admin.c.
+// PARITY: rrserver/events.admin.c rrserver_admin_send and rrclient/gtk/gtk.admin.c.
 const adminTables = {
    users: ['name', 'enabled', 'permissions', 'email', 'maxsessions', 'password_set', 'password_expires', 'password_change_required', 'uid'],
    rooms: ['name', 'deleted', 'topic', 'has_vfos', 'vfo_mask'],
