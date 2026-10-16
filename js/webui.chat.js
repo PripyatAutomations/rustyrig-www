@@ -200,6 +200,11 @@ class WebUiChat {
          this.rooms[room] += msg;
          return;
       }
+      // PARITY: rrclient/gtk/gtk.core.c ui_print_gtk; preserve a reader's viewport.
+      const output = this.output[0];
+      const previousTop = output.scrollTop;
+      const follow = previousTop + output.clientHeight >= output.scrollHeight - 1;
+      const previousHeight = output.scrollHeight;
       // limit scrollback to 1000 items
       const $messages = this.output.children();
 
@@ -208,13 +213,15 @@ class WebUiChat {
          $messages.slice(0, this.scrollback_purge_lines).remove();
       }
 
+      const removedHeight = previousHeight - output.scrollHeight;
       // Add the message to the chatbox and persist the active room's scrollback.
       this.output.append(msg);
+      if (!follow) output.scrollTop = Math.max(0, previousTop - removedHeight);
       this.rooms[room] = this.output.html();
 
-      // A few ms delay before scrolling to improve smoothness
-      setTimeout(function () {
-         $('#chat-box').scrollTop($('#chat-box')[0].scrollHeight);
+      const expectedTop = output.scrollTop;
+      if (follow) setTimeout(() => {
+         if (room === this.current_room && output.scrollTop === expectedTop) output.scrollTop = output.scrollHeight;
       }, 10);
    }
 
