@@ -177,6 +177,7 @@ function handle_binary_frame(event) {
       window.dispatchEvent(new CustomEvent('rustyrig:gps-nmea', {detail: {nmea: sentence, rig: f.rig, stream: f.stream}}));
       return;
    }
+   if (typeof mediaVideoFrame === "function" && mediaVideoFrame(f)) return;
    if (!binframe_is_audio(f)) {
       // Other subsystems (waterfall, control, etc) not handled yet
       return;

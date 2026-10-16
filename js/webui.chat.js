@@ -180,6 +180,7 @@ const webui_command_help = [
       "desc": "Show client information",
       "admin": false
    },
+   { "cmd": "webcam", "help_section": "Media", "desc": "Show/hide webcam viewer", "admin": false },
    {
       "cmd": "gps",
       "help_section": "Radio and discovery",
@@ -1017,6 +1018,9 @@ function parse_chat_cmd(e) {
             case 'object':
                if (args.length > 2) ChatBox.Append($('<div class="notice"></div>').text('Usage: /object [symbol|uuid] (e.g. rig0 or rig0.A)'),ChatBox.current_room);
                else rrObjectsList(args[1]);
+               break;
+            case 'webcam':
+               mediaWebcam(!/^(hide|close)$/i.test(args[1] || 'show'));
                break;
             case 'media':
                // PARITY: rustyrig-fw/rrclient/media.c: cmd_media()

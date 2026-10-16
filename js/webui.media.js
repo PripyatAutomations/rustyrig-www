@@ -220,12 +220,17 @@ function webui_parse_media_msg(msgObj) {
          entry.codec = m.codec || entry.codec || null;
          if (typeof entry.disabled !== 'boolean') entry.disabled = false;
          entry.descr = m.descr || entry.descr || "";
+         entry.profiles = m.profiles || "";
          mediaChannels[uuid] = entry;
          console.log("Media channel available:", uuid, mediaChannels[uuid]);
          mediaApplyConfirmedCodec(entry);
          mediaTryAutosubscribe(mediaChannels[uuid]);
          if (typeof webui_sync_rx_routes === 'function') webui_sync_rx_routes();
       }
+      return true;
+   } else if (m.cmd === "profile") {
+      const entry = mediaChannels[m["chan-uuid"]];
+      if (entry) { entry.videoProfile = m.profile || ""; entry.videoCodec = m.codec; }
       return true;
    } else if (m.cmd === "unsubscribed") {
       var entry = mediaChannels[m["chan-uuid"]];
@@ -284,6 +289,7 @@ window.webui_inits.push(function webui_media_init() {
    if (typeof on_socket_open === "function") {
       var prev = on_socket_open;
       on_socket_open = function() {
+         if (mediaVideo) mediaVideo.close(false);
          mediaChannels = {};
          if (typeof webui_sync_rx_routes === 'function') webui_sync_rx_routes();
          mediaRoom = "";
@@ -363,3 +369,62 @@ function mediaListChannels() {
 }
 
 // Print a listing of known media channels to chat.
+
+// PARITY: rrclient/gtk/gtk.webcam.c. Browser display profiles use JPEG; native
+// clients use their configured fwdsp decoder pipelines for H.264/H.265 too.
+var mediaVideo = null;
+function mediaWebcam(show = true) {
+   if (!show) {
+      if (mediaVideo) mediaVideo.close();
+      return;
+   }
+   const channels = Object.values(mediaChannels).filter(c => c.subsystem === 2 && c.dir === 0);
+   if (channels.length !== 1) { mediaCommandNotice('Select one video stream with /media SUB <uuid|#>'); return; }
+   const channel = channels[0];
+   if (!channel.subscribed) subscribeMediaChannel(channel.uuid);
+   mediaVideoOpen(channel);
+}
+function mediaVideoOpen(channel) {
+   if (mediaVideo) { mediaVideo.dialog.showModal(); return; }
+   const dialog = document.createElement('dialog');
+   const title = document.createElement('p'); title.textContent = channel.descr || 'Webcam';
+   const codec = document.createElement('select'), rate = document.createElement('select');
+   codec.setAttribute('aria-label', 'Video codec'); rate.setAttribute('aria-label', 'Frames per second');
+   const profiles = (channel.profiles || '').split(/\s+/).filter(name => /^jpeg\.[0-9]+$/.test(name));
+   codec.add(new Option('JPEG', 'jpeg'));
+   profiles.forEach(name => rate.add(new Option(name.slice(5) + ' fps', name)));
+   if (!profiles.length) rate.add(new Option('Source rate', ''));
+   const apply = document.createElement('button'); apply.textContent = 'Apply';
+   const image = document.createElement('img'); image.alt = 'Waiting for webcam'; image.style.maxWidth = '80vw';
+   const close = document.createElement('button'); close.textContent = 'Close';
+   const state = {dialog, image, uuid: channel.uuid, url: null, closed: false};
+   state.close = (unsubscribe = true) => {
+      if (state.closed) return;
+      state.closed = true;
+      if (unsubscribe) unsubscribeMediaChannel(state.uuid);
+      if (state.url) URL.revokeObjectURL(state.url);
+      dialog.remove(); mediaVideo = null;
+   };
+   close.onclick = state.close;
+   dialog.addEventListener('cancel', event => { event.preventDefault(); state.close(); });
+   apply.onclick = () => rrSendMessage(socket, {msg: {type: 'media'}, media: {
+      cmd: 'profile', 'chan-uuid': channel.uuid, profile: rate.value}});
+   dialog.append(title, codec, rate, apply, document.createElement('br'), image, close);
+   document.body.append(dialog); mediaVideo = state; dialog.showModal();
+   // Ask for a configured browser-compatible profile; never alter other viewers.
+   if (channel.codec !== 'jpeg' && profiles.length) apply.onclick();
+}
+function mediaVideoFrame(frame) {
+   if (!frame || frame.subsystem !== 2 || frame.dir !== 0 || !frame.payload_len) return false;
+   const channel = Object.values(mediaChannels).find(c => c.subscribed && c.subsystem === 2 && c.dir === 0 && c.stream === frame.stream);
+   if (!channel) return true;
+   if (!mediaVideo) return true; // Closing the viewer must not reopen it per frame.
+   if (mediaVideo.uuid !== channel.uuid || frame.codec !== 'jpeg') return true;
+   const payload = frame.payload;
+   if (payload.length < 3 || payload[0] !== 255 || payload[1] !== 216 || payload[2] !== 255) return true;
+   const previous = mediaVideo.url;
+   mediaVideo.url = URL.createObjectURL(new Blob([payload], {type: 'image/jpeg'}));
+   mediaVideo.image.src = mediaVideo.url;
+   if (previous) URL.revokeObjectURL(previous);
+   return true;
+}
