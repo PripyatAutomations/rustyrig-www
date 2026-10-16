@@ -284,8 +284,22 @@ function handle_chat_completion(e) {
    }
 }
 
+// PARITY: rrclient/userlist.c userlist_note_spoke and cmd.completion.c completion_rank_speakers.
+const roomSpeakerActivity = new Map();
+let roomSpeakerSequence = 0;
+function webui_note_spoke(room, name) {
+   if (!room || !name) return;
+   const key = String(room).toLowerCase() + '\n' + String(name).toLowerCase();
+   roomSpeakerActivity.set(key, ++roomSpeakerSequence);
+}
+function webui_clear_speakers() {
+   roomSpeakerActivity.clear(); roomSpeakerSequence = 0;
+}
 function getCULNames() {
-   return UserCache.get_all().map(user => user.name);
+   const room = String(ChatBox.current_room || '').toLowerCase();
+   const order = name => roomSpeakerActivity.get(room + '\n' + name.toLowerCase()) || 0;
+   return UserCache.get_all().map(user => user.name).sort((a, b) =>
+      order(b) - order(a) || (a.toLowerCase() < b.toLowerCase() ? -1 : a.toLowerCase() > b.toLowerCase() ? 1 : 0));
 }
 
 function updateCompletionIndicator(name) {

@@ -114,6 +114,7 @@ if (typeof module !== 'undefined') module.exports = { RRObjectCache };
 var rrInventoryRequest = 0, rrInventoryId = '';
 var rrInventoryRequests = new Map();
 function rrInventoryLine(entry) {
+   if (entry.kind === 'gps' && !entry.coordinates) entry = {...entry, coordinates: 'unknown/no-fix'};
    const depth = Number(entry.depth);
    if (!Number.isInteger(depth) || depth < 0 || depth > 4) return null;
    const fields = ['uuid', 'room', 'backend', 'frequency', 'codec', 'direction', 'subsystem', 'coordinates', 'source', 'service', 'state', 'access', 'action'];

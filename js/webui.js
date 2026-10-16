@@ -96,6 +96,7 @@ function ws_connect() {
       reconnect_delay = 1; 		// Reset reconnect delay to 1 second
 
       UserCache.clear();
+      if (typeof webui_clear_speakers === 'function') webui_clear_speakers();
 
       // Set a timer to check if keepalives needs to be sent (every day 10 seconds)
       clearInterval(ws_keepalive_timer);

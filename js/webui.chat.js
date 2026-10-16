@@ -533,6 +533,7 @@ function webui_parse_chat_msg(msgObj) {
       var msg_type = msgObj.talk.msg_type;
       // PARITY: rrclient/userlist.c userlist_display_name: no gap inside <@nick>.
       if (msg_type === 'pub' || msg_type === 'action') {
+         if (typeof webui_note_spoke === 'function') webui_note_spoke(targetRoom, rawSender);
          const member = UserCache.get(rawSender, targetRoom);
          const privs = new Set(String(member && member.privs || '').split(/[^A-Za-z0-9]+/).filter(Boolean).map(p => p.toLowerCase()));
          sender = (privs.has('owner') || privs.has('admin') ? '@' : privs.has('noob') ? '+' : '') + sender;
