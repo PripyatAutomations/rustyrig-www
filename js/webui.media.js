@@ -390,7 +390,8 @@ function mediaVideoOpen(channel) {
    const title = document.createElement('p'); title.textContent = channel.descr || 'Webcam';
    const codec = document.createElement('select'), rate = document.createElement('select');
    codec.setAttribute('aria-label', 'Video codec'); rate.setAttribute('aria-label', 'Frames per second');
-   const profiles = (channel.profiles || '').split(/\s+/).filter(name => /^jpeg\.[0-9]+$/.test(name));
+   const profiles = (channel.profiles || '').split(/\s+/).filter(name => /^jpeg\.[0-9]+$/.test(name))
+      .sort((a, b) => Number(a.slice(5)) - Number(b.slice(5)));
    codec.add(new Option('JPEG', 'jpeg'));
    profiles.forEach(name => rate.add(new Option(name.slice(5) + ' fps', name)));
    if (!profiles.length) rate.add(new Option('Source rate', ''));
