@@ -1,0 +1,17 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: rustyrig-www
+Source: https://github.com/PripyatAutomations/rustyrig-www
+
+Files: *
+Copyright: 2025 Pripyat Automations
+License: Expat
+ See /usr/share/common-licenses/Expat for the MIT/Expat license text.
+
+Files: fonts/*
+Copyright: See the upstream font files and accompanying OFL.txt
+License: OFL-1.1
+ See /usr/share/common-licenses/OFL-1.1 for the SIL Open Font License.
+
+Comment: This package also contains bundled third-party JavaScript assets.
+ Their individual copyright and license notices should be audited before
+ submission to an official Debian archive.
