@@ -1,0 +1,27 @@
+RustyRig browser WebUI
+=======================
+
+The rustyrig-server-webui package installs the static browser client into
+/var/lib/rustyrig/www, the web-root directory used by the RustyRig server
+packaging. It contains no daemon, service unit, or executable program.
+
+The RustyRig server's HTTPS/WebSocket listener and web-root configuration
+must be enabled and compatible with this browser client. Installing the
+static assets does not itself create a new HTTP/HTTPS listener.
+
+The WebUI is maintained independently at:
+https://github.com/PripyatAutomations/rustyrig-www
+
+Source package builds
+---------------------
+
+The source uses the Debian non-native 3.0 (quilt) format. For a source
+upload, put an upstream rustyrig-www_0.1.0.orig.tar.gz tarball beside the
+source directory, matching the version in debian/changelog. A binary-only
+development build does not need that orig tarball:
+
+    dpkg-buildpackage -b -us -uc
+
+Before a Debian archive submission, review bundled third-party JS/font
+license notices and replace the provisional changelog version with the
+actual upstream release version.
