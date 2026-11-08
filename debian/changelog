@@ -1,0 +1,6 @@
+rustyrig-www (0.1.0-1) unstable; urgency=medium
+
+  * Initial Debian packaging of the standalone RustyRig browser client.
+  * Install static assets into the RustyRig server's existing web root.
+
+ -- Pripyat Automations <dangerousdevices@istabpeople.com>  Sun, 08 Nov 2026 10:30:00 -0500
