@@ -1,0 +1,29 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	# The WebUI is plain static content; no compilation step is required.
+	:
+
+override_dh_auto_test:
+	# No build-time test runner is required for static asset installation.
+	:
+
+override_dh_auto_install:
+	set -e; \
+	dest=debian/rustyrig-server-webui/var/lib/rustyrig/www; \
+	install -d "$$dest"; \
+	install -m 644 index.html "$$dest/index.html"; \
+	for file in favicon.ico emojis.min.json; do \
+		if test -f "$$file"; then install -m 644 "$$file" "$$dest/$$file"; fi; \
+	done; \
+	for dir in css js fonts sounds images img updater; do \
+		if test -d "$$dir"; then \
+			install -d "$$dest/$$dir"; \
+			cp -a "$$dir/." "$$dest/$$dir/"; \
+		fi; \
+	done; \
+	# Development-only JS prototypes must not ship in the browser package.
+	rm -rf debian/rustyrig-server-webui/var/lib/rustyrig/www/js/junk
