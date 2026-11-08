@@ -1,0 +1,18 @@
+Source: rustyrig-www
+Section: hamradio
+Priority: optional
+Maintainer: Pripyat Automations <dangerousdevices@istabpeople.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.7.2
+Rules-Requires-Root: no
+Homepage: https://github.com/PripyatAutomations/rustyrig-www
+Vcs-Git: https://github.com/PripyatAutomations/rustyrig-www.git
+Vcs-Browser: https://github.com/PripyatAutomations/rustyrig-www
+
+Package: rustyrig-server-webui
+Architecture: all
+Depends: rustyrig-server, ${misc:Depends}
+Description: Browser-based client interface for the RustyRig server
+ Static HTML, JavaScript, CSS, and supporting assets for accessing a
+ RustyRig station from a web browser. This package installs the optional
+ browser client separately from the RustyRig server.
