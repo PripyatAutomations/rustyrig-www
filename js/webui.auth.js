@@ -113,9 +113,13 @@ function auth_change_password_submit(event) {
    if (!/^[a-z0-9_-]+$/i.test(auth_user || '')) {
       status.text('Invalid account name.'); return;
    }
-   chat_send_command('user', {data: 'pass ' + auth_user + ' ' + one});
+   socket.send(JSON.stringify({
+      msg: { type: 'auth' },
+      auth: { cmd: 'change-password', method: 'tls-password-v1',
+         user: auth_user, token: auth_token, 'new-password': one }
+   }));
    $('#auth-new-password, #auth-confirm-password').val('');
-   status.text('Password change requested; check the server notice for confirmation.');
+   status.text('Password change requested; awaiting server confirmation.');
 }
 
 function logout() {
@@ -186,6 +190,11 @@ function webui_parse_auth_msg(msgObj) {
    }
 
    switch (cmd) {
+      case 'password-changed':
+         $('#auth-change-password').hide();
+         $('#auth-password-status').text('');
+         ChatBox.Append('<div><span class="notice">Your password was changed successfully.</span></div>');
+         break;
       case 'authorized':
          // Save the auth_user as it's the only reputable source of truth for user's name
          if (msgObj.auth.user) {
