@@ -201,6 +201,10 @@ function webui_parse_auth_msg(msgObj) {
    }
 
    switch (cmd) {
+      case 'password-change-failed':
+         $('#auth-change-password').show();
+         $('#auth-password-status').text(msgObj.auth.reason || 'Password change failed.');
+         break;
       case 'password-changed':
          $('#auth-change-password').hide();
          $('#auth-password-status').text('');
