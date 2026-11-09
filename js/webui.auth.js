@@ -50,6 +50,18 @@ window.webui_inits.push(function webui_auth_init() {
    });
 // If we can fix the positioning, this is nice to have... but disabled for now
 //      var chroma_hash = $("input:password").chromaHash({ bars: 4, minimum: 3, salt:"63d38fe86e1ea020d1dc945a10664d80" });
+   $('#auth-change-form').on('submit', auth_change_password_submit);
+   $('#tab-password').on('click', function() {
+      if (logged_in && auth_secure_socket()) {
+         $('#auth-change-password').show();
+         $('#auth-new-password').trigger('focus');
+      }
+   });
+   $('#auth-password-cancel').on('click', function() {
+      $('#auth-change-password').hide();
+      $('#auth-new-password, #auth-confirm-password').val('');
+      $('#auth-password-status').text('');
+   });
    $('#win-login input#user').focus();
 
    $(window).on('beforeunload', function() {
@@ -88,36 +100,37 @@ function show_connecting(state) {
    }
 }
 
-async function sha1_hex(str) {
-   const buffer = new TextEncoder().encode(str);
-   const hashBuffer = await crypto.subtle.digest("SHA-1", buffer);
-   return Array.from(new Uint8Array(hashBuffer))
-      .map(b => b.toString(16).padStart(2, "0"))
-      .join("");
+// Passwords are sent only through a TLS-protected WebSocket.
+function auth_secure_socket() {
+   return location.protocol === 'https:' && typeof socket !== 'undefined' &&
+      socket.readyState === WebSocket.OPEN && socket.url.startsWith('wss://');
 }
-
-async function authenticate(login_user, login_pass, auth_token, nonce) {
-   ///////////////////////
-   // Replay protection //
-   ///////////////////////
-   // Here we hash the user-supplied password,
-   // add the nonce the server sent, then sha1sum it again
-   var firstHash = await sha1_hex(login_pass);
-   var combinedString = firstHash + '+' + nonce;
-   var hashed_pass = await sha1_hex(combinedString);
-
-   var msgObj = {
-      "msg": {
-         "type": "auth"
-      },
-      "auth": {
-         "cmd": "pass",
-         "user": login_user,
-         "pass": hashed_pass,
-         "token": auth_token
-      }
-   };
-   return msgObj;
+function authenticate(user, password, token) {
+   if (!auth_secure_socket()) throw new Error('HTTPS/WSS required for password login');
+   return { msg: { type:'auth' },
+      auth: { cmd:'pass', method:'tls-password-v1', user:user, pass:password, token:token } };
+}
+function auth_change_password_submit(event) {
+   event.preventDefault();
+   const one = $('#auth-new-password').val();
+   const two = $('#auth-confirm-password').val();
+   const status = $('#auth-password-status');
+   if (!logged_in || !auth_secure_socket()) {
+      status.text('Secure connection required.'); return;
+   }
+   if (one.length < 8 || one.length > 256 || one !== two) {
+      status.text('Use matching passwords of 8–256 characters.'); return;
+   }
+   if (!/^[a-z0-9_-]+$/i.test(auth_user || '')) {
+      status.text('Invalid account name.'); return;
+   }
+   socket.send(JSON.stringify({
+      msg: { type: 'auth' },
+      auth: { cmd: 'change-password', method: 'tls-password-v1',
+         user: auth_user, token: auth_token, 'new-password': one }
+   }));
+   $('#auth-new-password, #auth-confirm-password').val('');
+   status.text('Password change requested; awaiting server confirmation.');
 }
 
 function logout() {
@@ -148,6 +161,7 @@ function logout() {
       syslog_clear();
    }
 
+   $('#auth-change-password').hide();
    wm_switch_tab('login');
    // Force a reload 1.5 sec after logout so they might see the logged out notice
    setTimeout(function() { location.reload(); }, 1500);
@@ -187,6 +201,15 @@ function webui_parse_auth_msg(msgObj) {
    }
 
    switch (cmd) {
+      case 'password-change-failed':
+         $('#auth-change-password').show();
+         $('#auth-password-status').text(msgObj.auth.reason || 'Password change failed.');
+         break;
+      case 'password-changed':
+         $('#auth-change-password').hide();
+         $('#auth-password-status').text('');
+         ChatBox.Append('<div><span class="notice">Your password was changed successfully.</span></div>');
+         break;
       case 'authorized':
          // Save the auth_user as it's the only reputable source of truth for user's name
          if (msgObj.auth.user) {
@@ -207,6 +230,8 @@ function webui_parse_auth_msg(msgObj) {
          }
 
          logged_in = true;
+         $('#pass').val('');
+         $('#auth-change-password').toggle(Boolean(msgObj.auth['password-change-required']));
 
          // The browser advertises the codecs it can decode.  RX and TX are
          // negotiated independently, as in rrclient.
@@ -228,14 +253,15 @@ function webui_parse_auth_msg(msgObj) {
             auth_token = token;
          }
 
-         var login_pass = $('input#pass').val();
-         var hashed_pass = sha1_hex(login_pass);
-
-         // here we use an async call to crypto.simple
-         authenticate(login_user, login_pass, auth_token, nonce).then(msgObj => {
-            var msgObj_t = JSON.stringify(msgObj);
-            socket.send(msgObj_t);
-         });
+         if (msgObj.auth.method !== 'tls-password-v1' || !auth_secure_socket()) {
+            webui_parse_auth_msg({auth:{error:'TLS-only authentication is required'}});
+            return;
+         }
+         try {
+            socket.send(JSON.stringify(authenticate(login_user, $('input#pass').val(), auth_token)));
+         } catch (e) {
+            webui_parse_auth_msg({auth:{error:e.message}});
+         }
          break;
       case 'expired':
          console.log("Session expired!");
