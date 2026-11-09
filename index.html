@@ -98,6 +98,7 @@
     <span id="tab-config" class="menu-tab">cfg</span>
     <span id="tab-dark" class="menu-tab">dark</span>
     <span id="tab-logout" class="menu-tab menu-right">logout</span>
+     <span id="tab-password" class="menu-tab menu-right">password</span>
    </span><!-- menu_tabs -->
   </div><!-- tabstrip -->
   <div id="win-container">
@@ -147,14 +148,15 @@
    <div id="auth-change-password" role="dialog" aria-modal="true"
       aria-labelledby="auth-change-title"
       style="display:none;position:fixed;z-index:10000;top:10%;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:1.5em;border:2px solid #888;max-width:90vw">
-     <h3 id="auth-change-title">Change your temporary password</h3>
-     <p>Your account requires a new password before continuing.</p>
+     <h3 id="auth-change-title">Change your password</h3>
+     <p>Temporary passwords must be replaced before continuing.</p>
      <form id="auth-change-form" autocomplete="off">
       <label for="auth-new-password">New password</label>
       <input id="auth-new-password" type="password" minlength="8" maxlength="256" autocomplete="new-password" required/>
       <label for="auth-confirm-password">Confirm password</label>
       <input id="auth-confirm-password" type="password" minlength="8" maxlength="256" autocomplete="new-password" required/>
       <button type="submit">Change password</button>
+       <button id="auth-password-cancel" type="button">Close</button>
      </form>
      <p id="auth-password-status" role="status"></p>
     </div>
