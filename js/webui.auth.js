@@ -107,8 +107,8 @@ function auth_change_password_submit(event) {
    if (!logged_in || !auth_secure_socket()) {
       status.text('Secure connection required.'); return;
    }
-   if (one.length < 8 || one.length > 256 || one !== two || /[\\r\\n]/.test(one)) {
-      status.text('Use matching passwords of 8–256 characters without line breaks.'); return;
+   if (one.length < 8 || one.length > 256 || one !== two) {
+      status.text('Use matching passwords of 8–256 characters.'); return;
    }
    if (!/^[a-z0-9_-]+$/i.test(auth_user || '')) {
       status.text('Invalid account name.'); return;
