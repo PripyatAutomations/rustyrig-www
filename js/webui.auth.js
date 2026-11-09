@@ -51,6 +51,17 @@ window.webui_inits.push(function webui_auth_init() {
 // If we can fix the positioning, this is nice to have... but disabled for now
 //      var chroma_hash = $("input:password").chromaHash({ bars: 4, minimum: 3, salt:"63d38fe86e1ea020d1dc945a10664d80" });
    $('#auth-change-form').on('submit', auth_change_password_submit);
+   $('#tab-password').on('click', function() {
+      if (logged_in && auth_secure_socket()) {
+         $('#auth-change-password').show();
+         $('#auth-new-password').trigger('focus');
+      }
+   });
+   $('#auth-password-cancel').on('click', function() {
+      $('#auth-change-password').hide();
+      $('#auth-new-password, #auth-confirm-password').val('');
+      $('#auth-password-status').text('');
+   });
    $('#win-login input#user').focus();
 
    $(window).on('beforeunload', function() {
