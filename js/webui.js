@@ -211,7 +211,10 @@ function webui_handle_ws_msg(event) {
             webui_parse_callsign_msg(msgObj);
          } else if (msgObj.notice) {   // notices from ws_send_notice()
             var notice_ts = msg_timestamp(msgObj.msg.ts);
-            ChatBox.Append(`<div class="chat-status notice">${notice_ts}&nbsp;${msgObj.notice.msg}</div>`);
+            /* PARITY: rustyrig-fw/rrclient/events.c targeted notices. */
+            const target = msgObj.notice.target;
+            const room = target && Object.prototype.hasOwnProperty.call(ChatBox.rooms, target) ? target : undefined;
+            ChatBox.Append(`<div class="chat-status notice">${notice_ts}&nbsp;${webui_escape_html(msgObj.notice.msg)}</div>`, room);
          } else if (msgObj.ping) {		// Handle PING messages
             var ts = msgObj.msg ? msgObj.msg.ts : undefined;      // server's wall-clock ts, must be echoed back in msg.ts
             var mono_ts = msgObj.ping.ts;                        // monotonic us ts for RTT measurement
