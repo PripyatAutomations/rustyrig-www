@@ -184,7 +184,9 @@ function webui_handle_ws_msg(event) {
          } else if (msgObj.error) {
             console.log("ERR:", msgObj);
             var msg = msgObj.error.msg || msgObj.error;
-            ChatBox.Append(`<div class="chat-status notice">ERROR: ${msg}</div>`);
+            const target = msgObj.error.target;
+            const room = target && Object.prototype.hasOwnProperty.call(ChatBox.rooms, target) ? target : undefined;
+            ChatBox.Append(`<div class="chat-status notice">ERROR: ${webui_escape_html(msg)}</div>`, room);
             console.log("NOTICE:", msg);
          } else if (msgObj.hello) {
             ChatBox.Append(`<div class="chat-status notice">Server version: ${msgObj.hello.swver} on ${msgObj.hello.hwver}</div>`);
